@@ -76,3 +76,5 @@ test "explicit implementation" {
     try testing.expectEqual(@as(usize, 10), count); 
 }
 ```
+
+[1]: https://github.com/permutationlock/ztrait
