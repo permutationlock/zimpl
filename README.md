@@ -39,6 +39,27 @@ default constructable if `Type` naturally implements the
 interface, i.e. if `Type` has declarations matching
 `Ifc(Type)`.
 
+```Zig
+// An interface
+fn Iterator(comptime Type: type) type {
+    return struct {
+        pub const next = fn (*Type) ?u32;
+    };
+}
+
+// A generic function using the interface
+fn sum(iter: anytype, impl: Impl(@TypeOf(iter), Iterator)) u32 {
+    var mut_iter = iter;
+    var sum: u32 = 0;
+    while (impl.next(&mut_iter)) |n| {
+        sum += n;
+    }
+    return sum;
+}
+```
+
+See the [full example][4].
+
 ## `PtrChild`
 
 ```Zig
@@ -61,19 +82,6 @@ argument. Using
 for the type that the pointer dereferences to.
 
 ```Zig
-fn foo(ptr: anytype, Impl(PtrChild(@TypeOf(ptr)), Ifc)) ...
-```
-
-## Example
-
-```Zig
-const std = @import("std");
-const testing = std.testing;
-
-const zimpl = @import("zimpl");
-const Impl = zimpl.Impl;
-const PtrChild = zimpl.PtrChild;
-
 fn Incrementable(comptime Type: type) type {
     return struct {
         pub const increment = fn (*Type) void;
@@ -81,6 +89,7 @@ fn Incrementable(comptime Type: type) type {
     };
 }
 
+// accepting a pointer with an interface
 pub fn countToTen(
     ctr: anytype,
     impl: Impl(PtrChild(@TypeOf(ctr)), Incrementable)
@@ -89,58 +98,10 @@ pub fn countToTen(
         impl.increment(ctr);
     }
 }
-
-test "infer implementation" {
-    const MyCounter = struct {
-        count: usize,
-
-        pub fn increment(self: *@This()) void {
-            self.count += 1;
-        }
-     
-        pub fn read(self: *const @This()) usize {
-            return self.count;
-        }
-    };
-    var counter: MyCounter = .{ .count = 0 };
-    countToTen(&counter, .{});
-    try testing.expectEqual(@as(usize, 10), counter.count);
-}
-
-test "explicit implementation" {
-    const USize = struct {
-        pub fn inc(i: *usize) void { i.* += 1; }
-        pub fn deref(i: *const usize) usize { return i.*; }
-    };
-    var count: usize = 0;
-    countToTen(&count, .{ .increment = USize.inc, .read = USize.deref });
-    try testing.expectEqual(@as(usize, 10), count); 
-}
-
-test "override implementation" {
-    const MyCounter = struct {
-        count: usize,
-
-        pub fn increment(self: *@This()) void {
-            self.count += 1;
-        }
-     
-        pub fn read(self: *const @This()) usize {
-            return self.count;
-        }
-    };
-
-    const S = struct {
-        pub fn incThree(self: *MyCounter) void {
-            self.count = 1 + self.count * 2;
-        }
-    };
-    var counter: MyCounter = .{ .count = 0 };
-    countToTen(&counter, .{ .increment = S.incThree });
-    try testing.expectEqual(@as(usize, 15), counter.count);
-}
-
 ```
+See the [full example][3].
 
 [1]: https://github.com/permutationlock/ztrait
 [2]: https://en.wikipedia.org/wiki/Static_dispatch
+[3]: https://github.com/permutationlock/zimpl/blob/main/exampls/count.zig
+[4]: https://github.com/permutationlock/zimpl/blob/main/exampls/iterator.zig
