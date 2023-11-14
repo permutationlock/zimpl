@@ -1,7 +1,9 @@
 # zimpl: Zig interfaces
 
 A dead simple implementation of interfaces based on a tiny subset of
-[ztrait][1].  The `zimpl` module currently exposes a single declaration.
+[ztrait][1].  The `zimpl` module currently exposes a two declarations.
+
+## `Impl`
 
 ```Zig
 pub fn Impl(comptime Type: type, comptime Ifc: fn (type) type) type { ... }
@@ -13,24 +15,14 @@ There are no requirements on the arguments of `Impl`.
 
 ### Return value
 
-Let `T: type` and `I: fn (type) type`. Define `U = Unwrap(T)` where
-`Unwrap` is as defined below.
+A call to `Impl(Type, Ifc)` returns a struct type with one field `d`
+of type `Ifc(Type).d` for each declaration `d` of `Ifc(Type)`
+such that `@TypeOf(Ifc(Type).d) == type`.
 
-```Zig
-fn Unwrap(comptime Type: type) type {
-    return switch (@typeInfo(Type)) {
-        .Pointer => |info| if (info.size == .One) info.child else Type,
-        else => Type,
-    };
-}
-```
+If the declaration `Type.d` exists and `@TypeOf(Type.d) == Ifc(Type).d`,
+then `Type.d` is the default value for the field `d` in `Impl(Type, Ifc)`.
 
-A call to `Impl(T, I)` returns a struct type with one field `d`
-for each declaration `I(U).d` where `@TypeOf(I(U).d) == type`. If the
-declaration `U.d` exists and `@TypeOf(U.d) == I(U).d`, then `U.d` is
-the default value for the field `d` in `Impl(T, I)`.
-
-## Intent
+### Intent
 
 The idea is that the `Ifc` parameter defines an interface: a set of
 declarations that a type must implement. For a given type `T` the
@@ -38,23 +30,44 @@ declarations that must be implemented by `T` are exactly the
 `type` valued declarations of `Ifc(T)`.
 
 The returned struct type `Impl(Type, Ifc)` represents a specific
-implementation of the interface `Ifc` for `Unwrap(Type)`. The struct
-is defined such that `Impl(Type, Ifc){}` will
-default construct so long as `Unwrap(Type)` naturally implements the
-interface, i.e. `Unwrap(Type)` has a matching declaration for
-each type valued declaration of `Ifc(Unwrap(Type))`.
+implementation of the interface `Ifc` for `Type`. The implementation
+struct is defined such that `Impl(Type, Ifc){}` will
+default construct so long as `Type` naturally implements the
+interface.
 
-Single pointers are unwrapped with `Unwrap` to mimic the way that Zig's syntax
-automatically unwraps single item pointers to call member functions.
-E.g. if `t` is of type `*T` then `t.f()` is evaluated as `T.f(t)`.
+## `PtrChild`
 
-## Example
+```Zig
+pub fn PtrChild(comptime Type: type) type { ... }
+```
+
+### Arguments
+
+A compile error is thrown unless `Type` is a single item pointer.
+
+### Return value
+
+Returns the child type of a single item pointer.
+
+### Intent
+
+Often a generic function will wish to take a pointer as an `anytype`
+argument alongside a corresponding interface implementation. Using
+`PtrChild` it is simple to specify this requirement.
+
+```Zig
+fn foo(ptr: anytype, Impl(PtrChild(@TypeOf(ptr)), Ifc)) ...
+```
+
+## Examples
 
 ```Zig
 const std = @import("std");
 const testing = std.testing;
 
-const Impl = @import("zimpl").Impl;
+const zimpl = @import("zimpl");
+const Impl = zimpl.Impl;
+const PtrChild = zimpl.PtrChild;
 
 fn Incrementable(comptime Type: type) type {
     return struct {
@@ -63,7 +76,10 @@ fn Incrementable(comptime Type: type) type {
     };
 }
 
-pub fn countToTen(ctr: anytype, impl: Impl(@TypeOf(ctr), Incrementable)) void {
+pub fn countToTen(
+    ctr: anytype,
+    impl: Impl(PtrChild(@TypeOf(ctr)), Incrementable)
+) void {
     while (impl.read(ctr) < 10) {
         impl.increment(ctr);
     }

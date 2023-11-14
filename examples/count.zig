@@ -1,7 +1,9 @@
 const std = @import("std");
 const testing = std.testing;
 
-const Impl = @import("zimpl").Impl;
+const zimpl = @import("zimpl");
+const Impl = zimpl.Impl;
+const PtrChild = zimpl.PtrChild;
 
 fn Incrementable(comptime Type: type) type {
     return struct {
@@ -10,10 +12,23 @@ fn Incrementable(comptime Type: type) type {
     };
 }
 
-pub fn countToTen(ctr: anytype, impl: Impl(@TypeOf(ctr), Incrementable)) void {
+pub fn countToTen(
+    ctr: anytype,
+    impl: Impl(PtrChild(@TypeOf(ctr)), Incrementable)
+) void {
     while (impl.read(ctr) < 10) {
         impl.increment(ctr);
     }
+}
+
+test "explicit implementation" {
+    const USize = struct {
+        pub fn inc(i: *usize) void { i.* += 1; }
+        pub fn deref(i: *const usize) usize { return i.*; }
+    };
+    var count: usize = 0;
+    countToTen(&count, .{ .increment = USize.inc, .read = USize.deref });
+    try testing.expectEqual(@as(usize, 10), count); 
 }
 
 test "infer implementation" {
@@ -31,16 +46,6 @@ test "infer implementation" {
     var counter: MyCounter = .{ .count = 0 };
     countToTen(&counter, .{});
     try testing.expectEqual(@as(usize, 10), counter.count);
-}
-
-test "explicit implementation" {
-    const USize = struct {
-        pub fn inc(i: *usize) void { i.* += 1; }
-        pub fn deref(i: *const usize) usize { return i.*; }
-    };
-    var count: usize = 0;
-    countToTen(&count, .{ .increment = USize.inc, .read = USize.deref });
-    try testing.expectEqual(@as(usize, 10), count); 
 }
 
 test "override implementation" {
