@@ -41,8 +41,8 @@ The returned struct type `Impl(Type, Ifc)` represents a specific
 implementation of the interface `Ifc` for `Unwrap(Type)`. The struct
 is defined such that `Impl(Type, Ifc){}` will
 default construct so long as `Unwrap(Type)` naturally implements the
-interface, i.e. `Unwrap(Type)` has declarations matching the name
-and type of each type valued declaration of `Ifc(Unwrap(Type))`.
+interface, i.e. `Unwrap(Type)` has a matching declaration for
+each type valued declaration of `Ifc(Unwrap(Type))`.
 
 Single pointers are unwrapped with `Unwrap` to mimic the way that Zig's syntax
 automatically unwraps single item pointers to call member functions.
