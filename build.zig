@@ -24,6 +24,7 @@ pub fn build(b: *Builder) !void {
             .optimize = optimize
         });
         t.addModule("zimpl", zimpl);
-        test_step.dependOn(&t.step);
+        const r = b.addRunArtifact(t);
+        test_step.dependOn(&r.step);
     }
 }

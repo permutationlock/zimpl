@@ -13,7 +13,8 @@ There are no requirements on the arguments of `Impl`.
 
 ### Return value
 
-Let `U = Unwrap(T)` where `Unwrap` is as defined below.
+Let `T: type` and `I: fn (type) type`. Define `U = Unwrap(T)` where
+`Unwrap` is as defined below.
 
 ```Zig
 fn Unwrap(comptime Type: type) type {
@@ -38,10 +39,10 @@ declarations that must be implemented by `T` are exactly the
 
 The returned struct type `Impl(Type, Ifc)` represents a specific
 implementation of the interface `Ifc` for `Unwrap(Type)`. The struct
-`Impl(Type, Ifc)` is defined such that `Impl(Type, Ifc){}` will
-default construct as long as `Unwrap(Type)` naturally implements the
+is defined such that `Impl(Type, Ifc){}` will
+default construct so long as `Unwrap(Type)` naturally implements the
 interface, i.e. `Unwrap(Type)` has declarations matching the name
-and type of the type valued declarations of `Ifc(Unwrap(Type))`.
+and type of each type valued declaration of `Ifc(Unwrap(Type))`.
 
 Single pointers are unwrapped with `Unwrap` to mimic the way that Zig's syntax
 automatically unwraps single item pointers to call member functions.
@@ -94,6 +95,30 @@ test "explicit implementation" {
     countToTen(&count, .{ .increment = USize.inc, .read = USize.deref });
     try testing.expectEqual(@as(usize, 10), count); 
 }
+
+test "override implementation" {
+    const MyCounter = struct {
+        count: usize,
+
+        pub fn increment(self: *@This()) void {
+            self.count += 1;
+        }
+     
+        pub fn read(self: *const @This()) usize {
+            return self.count;
+        }
+    };
+
+    const S = struct {
+        pub fn incThree(self: *MyCounter) void {
+            self.count = 1 + self.count * 2;
+        }
+    };
+    var counter: MyCounter = .{ .count = 0 };
+    countToTen(&counter, .{ .increment = S.incThree });
+    try testing.expectEqual(@as(usize, 15), counter.count);
+}
+
 ```
 
 [1]: https://github.com/permutationlock/ztrait

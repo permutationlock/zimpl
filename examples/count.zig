@@ -42,3 +42,27 @@ test "explicit implementation" {
     countToTen(&count, .{ .increment = USize.inc, .read = USize.deref });
     try testing.expectEqual(@as(usize, 10), count); 
 }
+
+test "override implementation" {
+    const MyCounter = struct {
+        count: usize,
+
+        pub fn increment(self: *@This()) void {
+            self.count += 1;
+        }
+     
+        pub fn read(self: *const @This()) usize {
+            return self.count;
+        }
+    };
+
+    const S = struct {
+        pub fn incThree(self: *MyCounter) void {
+            self.count = 1 + self.count * 2;
+        }
+    };
+    var counter: MyCounter = .{ .count = 0 };
+    countToTen(&counter, .{ .increment = S.incThree });
+    try testing.expectEqual(@as(usize, 15), counter.count);
+}
+
