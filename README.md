@@ -71,21 +71,18 @@ while (true) {
 }
 ```
 
-
 The drawback now is that the function signature is long and the call
-site is verbose.
+site is verbose. Additionally, if we want to use the same `handler`
+parameter in another function then set of callback functions paremters
+would need to be defined again separately.
 
 The idea behind `zimpl` is to try and get the best of both worlds:
  - Library writers define interfaces and require an interface
    implementation to be passed alongside each generic parameter.
  - Library consumers define interface
-   implementation for types, and if a type already has the matching
+   implementations for types, and if a type has matching
    declarations for an interfaces then the implementation
-   can be inferred.
-
-If the convention is followed then duck typing is never used and the
-implemented interface functions are the only way to interact with a
-generic parameter.
+   can be inferred via a default constructor.
 
 ```Zig
 const Serve = struct {
