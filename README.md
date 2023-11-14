@@ -3,7 +3,7 @@
 A dead simple implementation of [static dispatch][2] interfaces in Zig.
 This library is a simplified tiny subset of [ztrait][1].
 
-The `zimpl` module currently exposes a two declarations.
+The `zimpl` module exposes two declarations.
 
 ## `Impl`
 
@@ -17,10 +17,10 @@ There are no special requirements for the arguments of `Impl`.
 
 ### Return value
 
-A call to `Impl(Type, Ifc)` returns a `comptime` generated struct type.
+A call to `Impl(Type, Ifc)` returns a struct type.
 For each declaration `d` of `Ifc(Type)` such that
-`@TypeOf(Ifc(Type).d) == type`, a field `d` of the same name is added to
-`Impl(Type, Ifc)` of type `Ifc(Type).d`.
+`@TypeOf(Ifc(Type).d) == type`, a field of the same name is added to
+`Impl(Type, Ifc)` with type `Ifc(Type).d`.
 
 If the declaration `Type.d` exists and `@TypeOf(Type.d) == Ifc(Type).d`,
 then `Type.d` is set to be the default value for the field `d` in
@@ -29,13 +29,12 @@ then `Type.d` is set to be the default value for the field `d` in
 ### Intent
 
 The idea is that the `Ifc` parameter is an interface: given
-a type `Type`, the struct `Ifc(Type)` defines a set of declarations
-that must be implemented for `Type`.
-The returned struct type `Impl(Type, Ifc)` represents a specific
+a type `Type`, the namespace of `Ifc(Type)` defines a set of
+declarations that must be implemented for `Type`.
+The struct type `Impl(Type, Ifc)` represents a specific
 implementation of the interface `Ifc` for `Type`.
 
-Note from return value definition above
-that the struct `Impl(Type, Ifc)` will be
+The struct `Impl(Type, Ifc)` will be
 default constructable if `Type` naturally implements the
 interface, i.e. if `Type` has declarations matching
 `Ifc(Type)`.
@@ -56,9 +55,9 @@ Returns the child type of a single item pointer.
 
 ### Intent
 
-Often a generic function will wish to take a pointer as an `anytype`
-argument alongside an interface implementation. Using
-`PtrChild` it is simple to specify that the interface requirement is
+Often one will want to have generic function take a pointer as an `anytype`
+argument. Using
+`PtrChild` it is simple to specify interface requirements
 for the type that the pointer dereferences to.
 
 ```Zig
