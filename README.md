@@ -41,7 +41,7 @@ const Serve = struct {
         self: *@This(),
         handler: anytype, 
         comptime onOpen: fn (@TypeOf(handler), Handle) void,
-        comptime onMessage: fn (@TypeOf(handler), Handle, Message) void,
+        comptime onMessage: fn (@TypeOf(handler), Handle, []const u8) void,
         comptime onClose: fn (@TypeOf(handler), Handle) void
     ) void {
         try self.pollSockets();
@@ -144,9 +144,9 @@ There are no special requirements for the arguments of `Impl`.
 #### Return value
 
 A call to `Impl(Type, Ifc)` returns a struct type.
-For each declaration `Ifc(Type).decl` that is a type,
+For each declaration `decl` of the type `Ifc(Type)`,
 a field of the same name
-`decl` is added to `Impl(Type, Ifc)` with type `Ifc(Type).decl`.
+`decl` is added to `Impl(Type, Ifc)` with type `Ifc(Type).decl`[^1].
 
 If the declaration `Type.decl` exists and `@TypeOf(Type.decl)`
 is `Ifc(Type).decl`,
@@ -272,3 +272,5 @@ There is a similar [full example][3].
 [3]: https://github.com/permutationlock/zimpl/blob/main/examples/count.zig
 [4]: https://github.com/permutationlock/zimpl/blob/main/examples/iterator.zig
 [5]: https://musing.permutationlock.com/posts/blog-working_with_anytype.html
+
+[^1]: If `Ifc(Type).decl` is not a type then it is ignored.
