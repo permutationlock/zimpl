@@ -13,20 +13,39 @@ There are no requirements on the arguments of `Impl`.
 
 ### Return value
 
-A call to `Impl(T, F)` returns a struct type with one field `d`
-for each declaration `F(T).d` where `@TypeOf(F(T).d) == type`. If the
-declaration `T.d` exists and `@TypeOf(T.d) == F(T).d`, then `T.d` is
-the default value for the field `d` in `Impl(T, F)`.
+Let `U = Unwrap(T)` where `Unwrap` is as defined below.
 
-There is a special case when `T = *U` is a single item pointer type.
-The `Impl` function first "unwraps" `*U`
-to `U`, so `Impl(*U, F)` is equivalent to `Impl(U, F)`. Only one
-"layer" is unwrapped, so `**U` will not unwrap to `U`.
+```Zig
+fn Unwrap(comptime Type: type) type {
+    return switch (@typeInfo(Type)) {
+        .Pointer => |info| if (info.size == .One) info.child else Type,
+        else => Type,
+    };
+}
+```
 
-The reason for unwrapping single pointers is mimic the way that Zig's syntax
-automatically unwraps single item pointers to call member functions. E.g. 
-if `u` is of type `*U` then `u.f()` is evaluated as
-`@TypeOf(u).Pointer.child.f(u)`.
+A call to `Impl(T, I)` returns a struct type with one field `d`
+for each declaration `I(U).d` where `@TypeOf(I(U).d) == type`. If the
+declaration `U.d` exists and `@TypeOf(U.d) == I(U).d`, then `U.d` is
+the default value for the field `d` in `Impl(T, I)`.
+
+## Intent
+
+The idea is that the `Ifc` parameter defines an interface: a set of
+declarations that a type must implement. For `Type` the declarations
+that must be implemented are exactly the `type` valued declarations
+of `Ifc(Unwrap(Type))`.
+
+The returned struct type `Impl(Type, Ifc)` represents a specific
+implementation of the interface `Ifc` for `Unwrap(Type)`. The struct
+`Impl(Type, Ifc)` is defined such that `Impl(Type, Ifc){}` will
+default construct as long as `Unwrap(Type)` naturally implements the
+interface, that is, `Unwrap(Type)` has declarations matching the name
+and type of the type valued declarations of `Ifc(Type)`.
+
+Single pointers are unwrapped to mimic the way that Zig's syntax
+automatically unwraps single item pointers to call member functions.
+E.g.if `t` is of type `*T` then `t.f()` is evaluated as `T.f(t)`.
 
 ## Example
 
