@@ -78,8 +78,8 @@ site is verbose.
 The idea behind `zimpl` is to try and get the best of both worlds:
  - Library writers define interfaces and require an interface
    implementation to be passed alongside each generic parameter.
- - Library consumers can define an interface
-   implementation for any type, but if a type the matching
+ - Library consumers define interface
+   implementation for types, and if a type already has the matching
    declarations for an interfaces then the implementation
    can be inferred.
 
@@ -121,6 +121,8 @@ var server = Server{};
 var handler = MyHandler{};
 try server.listen(port);
 while (true) {
+    // impl can be default constructed because MyHandler has onOpen, onMessage,
+    // and onClose member functions with the correct types
     try server.poll(&handler, .{});
 }
 ```
