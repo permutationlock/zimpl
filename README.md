@@ -19,16 +19,16 @@ There are no special requirements for the arguments of `Impl`.
 
 A call to `Impl(Type, Ifc)` returns a struct type.
 For each declaration `d` of `Ifc(Type)` such that
-`@TypeOf(Ifc(Type).d) == type`, a field of the same name is added to
-`Impl(Type, Ifc)` with type `Ifc(Type).d`.
+`@TypeOf(Ifc(Type).d)` equals `type`, a field of the same name
+`d` is added to `Impl(Type, Ifc)` with type `Ifc(Type).d`.
 
 If the declaration `Type.d` exists and `@TypeOf(Type.d) == Ifc(Type).d`,
-then `Type.d` is set to be the default value for the field `d` in
+then `Type.d` is set as the default value for the field `d` in
 `Impl(Type, Ifc)`.
 
 ### Intent
 
-The idea is that the `Ifc` parameter is an interface: given
+The `Ifc` parameter is an interface: given
 a type `Type`, the namespace of `Ifc(Type)` defines a set of
 declarations that must be implemented for `Type`.
 The struct type `Impl(Type, Ifc)` represents a specific
