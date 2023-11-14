@@ -1,5 +1,18 @@
 const std = @import("std");
 
+pub fn PtrChild(comptime Type: type) type {
+    switch (@typeInfo(Type)) {
+        .Pointer => |info| if (info.size == .One) {
+            return info.child;
+        },
+        else => {},
+    }
+    @compileError(std.fmt.comptimePrint(
+        "expected pointer, found '{}'",
+        .{ Type }
+    ));
+}
+
 pub fn Impl(comptime Type: type, comptime Ifc: fn (type) type) type {
     comptime {
         const impl_decls = getNamespace(Ifc(Type));
@@ -7,7 +20,7 @@ pub fn Impl(comptime Type: type, comptime Ifc: fn (type) type) type {
 
         for (&fields, impl_decls) |*fld, decl| {
             const fld_type = @field(Ifc(Type), decl.name);
-            if (@typeInfo(@TypeOf(fld_type)) != .Type) {
+            if (@TypeOf(fld_type) != type) {
                 continue;
             }
             fld.*.name = decl.name;
@@ -35,19 +48,6 @@ pub fn Impl(comptime Type: type, comptime Ifc: fn (type) type) type {
             },
         });
     }
-}
-
-pub fn PtrChild(comptime Type: type) type {
-    switch (@typeInfo(Type)) {
-        .Pointer => |info| if (info.size == .One) {
-            return info.child;
-        },
-        else => {},
-    }
-    @compileError(std.fmt.comptimePrint(
-        "expected pointer, found '{}'",
-        .{ Type }
-    ));
 }
 
 fn getNamespace(comptime Type: type) []const std.builtin.Type.Declaration {

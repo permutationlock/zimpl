@@ -1,7 +1,9 @@
-# zimpl: Zig interfaces
+# Zimpl Zig interfaces
 
-A dead simple implementation of interfaces based on a tiny subset of
-[ztrait][1].  The `zimpl` module currently exposes a two declarations.
+A dead simple implementation of [static dispatch][2] interfaces in Zig.
+This library is a simplified tiny subset of [ztrait][1].
+
+The `zimpl` module currently exposes a two declarations.
 
 ## `Impl`
 
@@ -11,29 +13,32 @@ pub fn Impl(comptime Type: type, comptime Ifc: fn (type) type) type { ... }
 
 ### Arguments
 
-There are no requirements on the arguments of `Impl`.
+There are no special requirements for the arguments of `Impl`.
 
 ### Return value
 
-A call to `Impl(Type, Ifc)` returns a struct type with one field `d`
-of type `Ifc(Type).d` for each declaration `d` of `Ifc(Type)`
-such that `@TypeOf(Ifc(Type).d) == type`.
+A call to `Impl(Type, Ifc)` returns a `comptime` generated struct type.
+For each declaration `d` of `Ifc(Type)` such that
+`@TypeOf(Ifc(Type).d) == type`, a field `d` of the same name is added to
+`Impl(Type, Ifc)` of type `Ifc(Type).d`.
 
 If the declaration `Type.d` exists and `@TypeOf(Type.d) == Ifc(Type).d`,
-then `Type.d` is the default value for the field `d` in `Impl(Type, Ifc)`.
+then `Type.d` is set to be the default value for the field `d` in
+`Impl(Type, Ifc)`.
 
 ### Intent
 
-The idea is that the `Ifc` parameter defines an interface: a set of
-declarations that a type must implement. For a given type `T` the
-declarations that must be implemented by `T` are exactly the
-`type` valued declarations of `Ifc(T)`.
-
+The idea is that the `Ifc` parameter is an interface: given
+a type `Type`, the struct `Ifc(Type)` defines a set of declarations
+that must be implemented for `Type`.
 The returned struct type `Impl(Type, Ifc)` represents a specific
-implementation of the interface `Ifc` for `Type`. The implementation
-struct is defined such that `Impl(Type, Ifc){}` will
-default construct so long as `Type` naturally implements the
-interface.
+implementation of the interface `Ifc` for `Type`.
+
+Note from return value definition above
+that the struct `Impl(Type, Ifc)` will be
+default constructable if `Type` naturally implements the
+interface, i.e. if `Type` has declarations matching
+`Ifc(Type)`.
 
 ## `PtrChild`
 
@@ -52,14 +57,15 @@ Returns the child type of a single item pointer.
 ### Intent
 
 Often a generic function will wish to take a pointer as an `anytype`
-argument alongside a corresponding interface implementation. Using
-`PtrChild` it is simple to specify this requirement.
+argument alongside an interface implementation. Using
+`PtrChild` it is simple to specify that the interface requirement is
+for the type that the pointer dereferences to.
 
 ```Zig
 fn foo(ptr: anytype, Impl(PtrChild(@TypeOf(ptr)), Ifc)) ...
 ```
 
-## Examples
+## Example
 
 ```Zig
 const std = @import("std");
@@ -138,3 +144,4 @@ test "override implementation" {
 ```
 
 [1]: https://github.com/permutationlock/ztrait
+[2]: https://en.wikipedia.org/wiki/Static_dispatch
