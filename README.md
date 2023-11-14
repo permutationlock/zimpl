@@ -57,6 +57,28 @@ fn sum(iter: anytype, impl: Impl(@TypeOf(iter), Iterator)) u32 {
     }
     return sum;
 }
+
+test {
+    const SliceIter = struct {
+        slice: []const u32,
+
+        pub fn init(s: []u32) @This() {
+            return .{ .slice = s, };
+        }
+
+        pub fn next(self: *@This()) ?u32 {
+            if (self.slice.len == 0) {
+                return null;
+            }
+            const head = self.slice[0];
+            self.slice = self.slice[1..];
+            return head;
+        }
+    };
+    const nums = [_]u32{ 1, 2, 3, 4, 5, };
+    const total = sum(SliceIter.init(&nums), .{});
+    testing.expectEqual(@as(u32, 15), total);
+}
 ```
 
 There is a simlar [full example][4].
@@ -98,6 +120,23 @@ pub fn countToTen(
     while (impl.read(ctr) < 10) {
         impl.increment(ctr);
     }
+}
+
+test {
+    const MyCounter = struct {
+        count: usize,
+
+        pub fn increment(self: *@This()) void {
+            self.count += 1;
+        }
+     
+        pub fn read(self: *const @This()) usize {
+            return self.count;
+        }
+    };
+    var counter: MyCounter = .{ .count = 0 };
+    countToTen(&counter, .{});
+    try testing.expectEqual(@as(usize, 10), counter.count);
 }
 ```
 There is a similar [full example][3].
