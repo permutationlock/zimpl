@@ -72,14 +72,20 @@ while (true) {
 ```
 
 
-The drawback now is that the function signature is long, and the call
-site is verbose as well since each function must be specified.
+The drawback now is that the function signature is long and the call
+site is verbose.
 
-The idea behind `zimpl` is to try and get the best of both worlds.
-Library writers define interfaces and consumers will pass interface
-implementations for their types. If a type has
-declarations matching the interfaces, the interface implementation
-can be inferred.
+The idea behind `zimpl` is to try and get the best of both worlds:
+ - Library writers define interfaces and require an interface
+   implementation to be passed alongside each generic parameter.
+ - Library consumers can define an interface
+   implementation for any type, but if a type the matching
+   declarations for an interfaces then the implementation
+   can be inferred.
+
+If the convention is followed then duck typing is never used and the
+implemented interface functions are the only way to interact with a
+generic parameter.
 
 ```Zig
 const Serve = struct {
@@ -123,7 +129,7 @@ For a full discussion on the above example see [this article][5].
 
 ## The library
 
-This might sound complicated, but the `zimpl` module is ~50 lines of code
+The above might sound complicated, but the `zimpl` module is ~50 lines of code
 and exposes exactly two declarations.
 
 ### `Impl`
