@@ -22,7 +22,7 @@ For each declaration `d` of `Ifc(Type)` such that
 `@TypeOf(Ifc(Type).d)` equals `type`, a field of the same name
 `d` is added to `Impl(Type, Ifc)` with type `Ifc(Type).d`.
 
-If the declaration `Type.d` exists and `@TypeOf(Type.d) == Ifc(Type).d`,
+If the declaration `Type.d` exists and `@TypeOf(Type.d)` is `Ifc(Type).d`,
 then `Type.d` is set as the default value for the field `d` in
 `Impl(Type, Ifc)`.
 
@@ -58,7 +58,7 @@ fn sum(iter: anytype, impl: Impl(@TypeOf(iter), Iterator)) u32 {
 }
 ```
 
-See the [full example][4].
+There is a simlar [full example][4].
 
 ## `PtrChild`
 
@@ -99,9 +99,9 @@ pub fn countToTen(
     }
 }
 ```
-See the [full example][3].
+There is a similar [full example][3].
 
 [1]: https://github.com/permutationlock/ztrait
 [2]: https://en.wikipedia.org/wiki/Static_dispatch
-[3]: https://github.com/permutationlock/zimpl/blob/main/exampls/count.zig
-[4]: https://github.com/permutationlock/zimpl/blob/main/exampls/iterator.zig
+[3]: https://github.com/permutationlock/zimpl/blob/main/examples/count.zig
+[4]: https://github.com/permutationlock/zimpl/blob/main/examples/iterator.zig
