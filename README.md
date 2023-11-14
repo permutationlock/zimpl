@@ -32,18 +32,18 @@ the default value for the field `d` in `Impl(T, I)`.
 ## Intent
 
 The idea is that the `Ifc` parameter defines an interface: a set of
-declarations that a type must implement. For `Type` the declarations
-that must be implemented are exactly the `type` valued declarations
-of `Ifc(Unwrap(Type))`.
+declarations that a type must implement. For the given type `T` the
+declarations that must be implemented by `T` are exactly the
+`type` valued declarations of `Ifc(T)`.
 
 The returned struct type `Impl(Type, Ifc)` represents a specific
 implementation of the interface `Ifc` for `Unwrap(Type)`. The struct
 `Impl(Type, Ifc)` is defined such that `Impl(Type, Ifc){}` will
 default construct as long as `Unwrap(Type)` naturally implements the
-interface, that is, `Unwrap(Type)` has declarations matching the name
-and type of the type valued declarations of `Ifc(Type)`.
+interface, i.e. `Unwrap(Type)` has declarations matching the name
+and type of the type valued declarations of `Ifc(Unwrap(Type))`.
 
-Single pointers are unwrapped to mimic the way that Zig's syntax
+Single pointers are unwrapped with `Unwrap` to mimic the way that Zig's syntax
 automatically unwraps single item pointers to call member functions.
 E.g.if `t` is of type `*T` then `t.f()` is evaluated as `T.f(t)`.
 
