@@ -14,15 +14,16 @@ pub fn build(b: *Builder) !void {
         .source_file = .{ .path = "src/zimpl.zig" },
     });
 
+    const test_step = b.step("test", &.{});
+
     inline for (paths) |example| {
-        const exe = b.addExecutable(.{
+        const t = b.addTest(.{
             .name = example.name,
             .root_source_file = .{ .path = example.path },
             .target = target,
             .optimize = optimize
         });
-        exe.addModule("zimpl", zimpl);
-        const run_step = b.step(example.name, &.{});
-        run_step.dependOn(&b.addRunArtifact(exe).step);
+        t.addModule("zimpl", zimpl);
+        test_step.dependOn(&t.step);
     }
 }
