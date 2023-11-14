@@ -18,13 +18,14 @@ There are no special requirements for the arguments of `Impl`.
 ### Return value
 
 A call to `Impl(Type, Ifc)` returns a struct type.
-For each declaration `d` of `Ifc(Type)` such that
-`@TypeOf(Ifc(Type).d)` equals `type`, a field of the same name
-`d` is added to `Impl(Type, Ifc)` with type `Ifc(Type).d`.
+For each declaration `Ifc(Type).decl` that is a type,
+a field of the same name
+`decl` is added to `Impl(Type, Ifc)` with type `Ifc(Type).decl`.
 
-If the declaration `Type.d` exists and `@TypeOf(Type.d)` is `Ifc(Type).d`,
-then `Type.d` is set as the default value for the field `d` in
-`Impl(Type, Ifc)`.
+If the declaration `Type.decl` exists and `@TypeOf(Type.decl)`
+is `Ifc(Type).decl`,
+then `Type.decl` is set as the default value for the field
+`decl` in `Impl(Type, Ifc)`.
 
 ### Intent
 
@@ -89,7 +90,7 @@ fn Incrementable(comptime Type: type) type {
     };
 }
 
-// accepting a pointer with an interface
+// Accepting a pointer with an interface
 pub fn countToTen(
     ctr: anytype,
     impl: Impl(PtrChild(@TypeOf(ctr)), Incrementable)
