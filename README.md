@@ -7,10 +7,10 @@ This library is a simplified tiny subset of [ztrait][1].
 
 Suppose that we have a generic function to poll for
 events in a `Server` struct. The caller passes in a `handler` argument to
-provide callbacks for each event.
+provide event callbacks.
 
 ```Zig
-const Serve = struct {
+const Server = struct {
     // ...
     pub fn poll(self: *@This(), handler: anytype) !void {
         try self.pollSockets();
@@ -26,7 +26,7 @@ const Serve = struct {
 };
 ```
 
-A complaint with the above function is that it is not clear from the
+A complaint with the above implementation is that it is not clear from the
 signature, or even the full definition, what the
 requirements are for the `handler` argument.
 
@@ -35,7 +35,7 @@ typing and have the caller pass in all of the handler callback functions
 directly.
 
 ```Zig
-const Serve = struct {
+const Server = struct {
     // ...
     pub fn poll(
         self: *@This(),
@@ -72,20 +72,20 @@ while (true) {
 ```
 
 The drawback now is that the function signature is long and the call
-site is verbose. Additionally, if we want to use the same `handler`
-parameter in another function then set of callback functions paremters
+site is verbose. Additionally, if we ever want to use a `handler`
+parameter in another function then set of callback paramemters
 would need to be defined again separately.
 
 The idea behind `zimpl` is to try and get the best of both worlds:
  - Library writers define interfaces and require an interface
    implementation to be passed alongside each generic parameter.
- - Library consumers define interface
+ - Library consumers can define interface
    implementations for types, and if a type has matching
    declarations for an interfaces then the implementation
    can be inferred via a default constructor.
 
 ```Zig
-const Serve = struct {
+const Server = struct {
     // ...
     pub fn Handler(comptime Type: type) type {
         return struct {
@@ -126,10 +126,10 @@ while (true) {
 
 For a full discussion on the above example see [this article][5].
 
-## The library
+## The zimpl library
 
 The above might sound complicated, but the `zimpl` module is ~50 lines of code
-and exposes exactly two declarations.
+and exposes exactly two declarations: `Impl` and `PtrChild`.
 
 ### `Impl`
 

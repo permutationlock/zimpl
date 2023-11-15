@@ -18,11 +18,13 @@ pub fn Impl(comptime Type: type, comptime Ifc: fn (type) type) type {
         const impl_decls = getNamespace(Ifc(Type));
         var fields: [impl_decls.len]std.builtin.Type.StructField = undefined;
 
-        for (&fields, impl_decls) |*fld, decl| {
+        var findex: usize = 0;
+        for (impl_decls) |decl| {
             const fld_type = @field(Ifc(Type), decl.name);
             if (@TypeOf(fld_type) != type) {
                 continue;
             }
+            var fld = &fields[findex];
             fld.*.name = decl.name;
             fld.*.alignment = 0;    // defualt alignnment
             fld.*.is_comptime = false;
@@ -37,12 +39,14 @@ pub fn Impl(comptime Type: type, comptime Ifc: fn (type) type) type {
                     }
                 },
             }
+
+            findex += 1;
         }
         return @Type(std.builtin.Type{
             .Struct = .{
                 .layout = .Auto,
                 .backing_integer = null,
-                .fields = &fields,
+                .fields = fields[0..findex],
                 .decls = &[0]std.builtin.Type.Declaration{},
                 .is_tuple = false,
             },
