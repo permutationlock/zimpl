@@ -143,28 +143,18 @@ There are no special requirements for the arguments of `Impl`.
 
 #### Return value
 
-A call to `Impl(Type, Ifc)` returns a struct type.
-For each declaration `decl` of the type `Ifc(Type)`,
-a field of the same name
-`decl` is added to `Impl(Type, Ifc)` with type `Ifc(Type).decl`[^1].
+The return value is a struct type containing one field
+for each declaration of `Ifc(Type)`.
 
-If the declaration `Type.decl` exists and `@TypeOf(Type.decl)`
-is `Ifc(Type).decl`,
-then `Type.decl` is set as the default value for the field
-`decl` in `Impl(Type, Ifc)`.
+Each declaration of type `type` defines a
+declaration that must be implemented for the given type. The
+default value is inferred to be the corresponding declaration
+of `Type` of the same name if it exists and has the correct type[^1].
 
-#### Intent
+Every other declaration is "forwarded," that is, defines a field
+with its value set as default value.
 
-The `Ifc` parameter is an interface: given
-a type `Type`, the namespace of `Ifc(Type)` defines a set of
-declarations that must be implemented for `Type`.
-The struct type `Impl(Type, Ifc)` represents a specific
-implementation of the interface `Ifc` for `Type`.
-
-The struct `Impl(Type, Ifc)` will be
-default constructable if `Type` naturally implements the
-interface, i.e. if `Type` has declarations matching
-`Ifc(Type)`.
+#### Example
 
 ```Zig
 // An interface
@@ -207,8 +197,6 @@ test {
 }
 ```
 
-There is a simlar [full example][4].
-
 ### `PtrChild`
 
 ```Zig
@@ -223,12 +211,7 @@ A compile error is thrown unless `Type` is a single item pointer.
 
 Returns the child type of a single item pointer.
 
-#### Intent
-
-Often one will want to have generic function take a pointer as an `anytype`
-argument. Using
-`PtrChild` it is simple to specify interface requirements
-for the type that the pointer dereferences to.
+#### Example
 
 ```Zig
 fn Incrementable(comptime Type: type) type {
@@ -265,7 +248,75 @@ test {
     try testing.expectEqual(@as(usize, 10), counter.count);
 }
 ```
-There is a similar [full example][3].
+
+### `Unwrap`
+
+```Zig
+pub fn Unwrap(comptime Type: type) type { ... }
+```
+
+#### Arguments
+
+Works for any type.
+
+#### Return value
+
+Unwraps any number of layers of `*`, `?`, or `!` and returns the
+underlying type. E.g. `Unwrap(!*?*u8) = u8`.
+
+#### Example
+
+```Zig
+pub fn Reader(comptime Type: type) type {
+    return struct {
+        pub const read = fn (self: Type, buffer: []u8) anyerror!usize;
+
+        pub inline fn readAll(self: Type, buffer: []u8) anyerror!usize {
+            var index: usize = 0;
+            while (index < buffer.len) {
+                const amt = try Unwrap(Type).read(self, buffer[index..]);
+                if (amt == 0) break;
+                index += amt;
+            }
+            return index;
+        }
+    };
+}
+
+pub fn readFromReader(
+    rdr_data: anytype,
+    comptime rdr_impl: zimpl.Impl(@TypeOf(rdr_data), Reader),
+    output: []u8,
+) !void {
+    const len = try rdr_impl.readAll(rdr_data, output);
+    if (len != output.len) {
+        return error.EndOfStream;
+    }
+}
+
+const MyReader = struct {
+    buffer: []const u8,
+    pos: usize,
+
+    pub fn read(self: *@This(), out_buffer: []u8) anyerror!usize {
+        const len = @min(self.buffer[self.pos..].len, out_buffer.len);
+        @memcpy(
+            out_buffer[0..len],
+            self.buffer[self.pos..][0..len],
+        );
+        self.pos += len;
+        return len;
+    }
+};
+
+test {
+    const in_buf: []const u8 = "I really hope that this works!";
+    var reader = MyReader{ .buffer = in_buf, .pos = 0 };
+    var out_buf: [16]u8 = undefined;
+    try readFromReader(&reader, .{}, &out_buf);
+    try testing.expectEqualSlices(u8, in_buf[0..out_buf.len], &out_buf);
+}
+```
 
 [1]: https://github.com/permutationlock/ztrait
 [2]: https://en.wikipedia.org/wiki/Static_dispatch
@@ -273,4 +324,5 @@ There is a similar [full example][3].
 [4]: https://github.com/permutationlock/zimpl/blob/main/examples/iterator.zig
 [5]: https://musing.permutationlock.com/posts/blog-working_with_anytype.html
 
-[^1]: If `Ifc(Type).decl` is not a type then it is ignored.
+[^1]: Technically default values are inferred from `Unwrap(Type)`.
+    But note that if `Type` has a namespace then `Unwrap(Type)=Type`.

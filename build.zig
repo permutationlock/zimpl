@@ -19,12 +19,7 @@ pub fn build(b: *Builder) !void {
     const test_step = b.step("test", &.{});
 
     inline for (paths) |example| {
-        const t = b.addTest(.{
-            .name = example.name,
-            .root_source_file = .{ .path = example.path },
-            .target = target,
-            .optimize = optimize
-        });
+        const t = b.addTest(.{ .name = example.name, .root_source_file = .{ .path = example.path }, .target = target, .optimize = optimize });
         t.addModule("zimpl", zimpl);
         const r = b.addRunArtifact(t);
         test_step.dependOn(&r.step);
