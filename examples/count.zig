@@ -14,7 +14,7 @@ fn Incrementable(comptime Type: type) type {
 
 pub fn countToTen(
     ctr: anytype,
-    impl: Impl(PtrChild(@TypeOf(ctr)), Incrementable)
+    comptime impl: Impl(PtrChild(@TypeOf(ctr)), Incrementable)
 ) void {
     while (impl.read(ctr) < 10) {
         impl.increment(ctr);
