@@ -148,12 +148,11 @@ specific arguments (see below).
 #### Return value
 
 The return value is a struct type containing one field
-for each declaration of `Ifc(Type)`.
-
-Each type valued declaration defines a field of that
-type in `Impl(Type, Ifc)`. The default value is inferred to be the
+for each type valued declaration of `Ifc(Type)`.
+The default value of each field is set to be the
 declaration
-of `Type` of the same name, if it exists with a matching type[^1].
+of `Type` of the same name, if such a declaration exists
+with a matching type[^1].
 
 Declarations of `Ifc(Type)` that aren't types are ignored.
 
