@@ -128,8 +128,10 @@ For a full discussion on the above example see [this article][5].
 
 ## The zimpl library
 
-The above might sound complicated, but the `zimpl` module is ~50 lines of code
-and exposes exactly two declarations: `Impl` and `PtrChild`.
+The above might sound complicated, but the `zimpl` module is fewer than
+100 lines of code
+and exposes exactly three declarations: `Impl`, `PtrChild`, and
+`Unwrap`.
 
 ### `Impl`
 
