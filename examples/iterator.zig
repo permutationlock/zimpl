@@ -1,13 +1,17 @@
 const std = @import("std");
 const testing = std.testing;
 
-const Impl = @import("zimpl").Impl;
+const zimpl = @import("zimpl");
+const Impl = zimpl.Impl;
+const Interface = zimpl.Interface;
 
-fn Iterator(comptime Data: type) fn (type) type {
+fn Iterator(comptime Data: type) fn (type) Interface {
     return struct {
-        pub fn Ifc(comptime Type: type) type {
-            return struct {
-                pub const next = fn (*Type) ?*Data;
+        pub fn Ifc(comptime Type: type) Interface {
+            return .{
+                .requires = struct {
+                    pub const next = fn (*Type) ?*Data;
+                },
             };
         }
     }.Ifc;

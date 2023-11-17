@@ -3,21 +3,24 @@ const testing = std.testing;
 
 const zimpl = @import("zimpl");
 const Impl = zimpl.Impl;
+const Interface = zimpl.Interface;
 const PtrChild = zimpl.PtrChild;
 
-fn Incrementable(comptime Type: type) type {
-    return struct {
-        pub const increment = fn (*Type) void;
-        pub const read = fn (*const Type) usize;
+fn Incrementable(comptime Type: type) Interface {
+    return .{
+        .requires = struct {
+            pub const increment = fn (*Type) void;
+            pub const read = fn (*const Type) usize;
+        },
     };
 }
 
 pub fn countToTen(
-    ctr: anytype,
-    comptime impl: Impl(PtrChild(@TypeOf(ctr)), Incrementable)
+    ctr_ptr: anytype,
+    comptime ctr_impl: Impl(PtrChild(@TypeOf(ctr_ptr)), Incrementable)
 ) void {
-    while (impl.read(ctr) < 10) {
-        impl.increment(ctr);
+    while (ctr_impl.read(ctr_ptr) < 10) {
+        ctr_impl.increment(ctr_ptr);
     }
 }
 
