@@ -6,34 +6,44 @@ pub fn Impl(comptime Type: type, comptime Ifc: fn (type) type) type {
         const impl_decls = getNamespace(Ifc(Type));
         var fields: [impl_decls.len]std.builtin.Type.StructField = undefined;
 
-        for (impl_decls, &fields) |decl, *fld| {
+        var fld_index = 0;
+        for (impl_decls) |decl| {
             const fld_type = @field(Ifc(Type), decl.name);
+            if (@TypeOf(fld_type) != type) {
+                continue;
+            }
+            const fld = &fields[fld_index];
             fld.*.name = decl.name;
             fld.*.alignment = 0; // defualt alignnment
             fld.*.is_comptime = false;
-            if (@TypeOf(fld_type) == type) {
-                fld.*.type = fld_type;
-                fld.*.default_value = null;
-            } else {
-                // directly forward non type declarations
-                fld.*.type = @TypeOf(fld_type);
-                fld.*.default_value = &fld_type;
-            }
+            fld.*.type = fld_type;
+            fld.*.default_value = null;
+            // infer default value from Unwrap(Type)
             switch (@typeInfo(UWType)) {
-                inline else => |info| if (@hasField(@TypeOf(info), "decls")) {
+                inline else => |info| if (@hasField(
+                    @TypeOf(info),
+                    "decls",
+                )) {
                     if (@hasDecl(UWType, decl.name)) {
-                        if (@TypeOf(@field(UWType, decl.name)) == fld.*.type) {
-                            fld.*.default_value = &@field(UWType, decl.name);
+                        if (@TypeOf(@field(
+                            UWType,
+                            decl.name,
+                        )) == fld.*.type) {
+                            fld.*.default_value = &@field(
+                                UWType,
+                                decl.name,
+                            );
                         }
                     }
                 },
             }
+            fld_index += 1;
         }
         return @Type(std.builtin.Type{
             .Struct = .{
                 .layout = .Auto,
                 .backing_integer = null,
-                .fields = &fields,
+                .fields = fields[0..fld_index],
                 .decls = &[0]std.builtin.Type.Declaration{},
                 .is_tuple = false,
             },

@@ -141,61 +141,82 @@ pub fn Impl(comptime Type: type, comptime Ifc: fn (type) type) type { ... }
 
 #### Arguments
 
-There are no special requirements for the arguments of `Impl`.
+There are no requirements for the parameters,
+but the function is only useful when called with
+specific arguments (see below).
 
 #### Return value
 
 The return value is a struct type containing one field
 for each declaration of `Ifc(Type)`.
 
-Each declaration of type `type` defines a
-declaration that must be implemented for the given type. The
-default value is inferred to be the corresponding declaration
-of `Type` of the same name if it exists and has the correct type[^1].
+Each type valued declaration defines a field of that
+type in `Impl(Type, Ifc)`. The default value is inferred to be the
+declaration
+of `Type` of the same name, if it exists with a matching type[^1].
 
-Every other declaration is "forwarded," that is, defines a field
-with its value set as default value.
+Declarations of `Ifc(Type)` that aren't types are ignored.
 
 #### Example
 
 ```Zig
 // An interface
-fn Iterator(comptime Type: type) type {
+pub fn Reader(comptime Type: type) type {
     return struct {
-        pub const next = fn (*Type) ?u32;
+        pub const ReadError = type;
+        pub const read = fn (reader_ctx: Type, buffer: []u8) anyerror!usize;
     };
 }
 
-// A generic function using the interface
-fn sum(iter: anytype, impl: Impl(@TypeOf(iter), Iterator)) u32 {
-    var mut_iter = iter;
-    var sum: u32 = 0;
-    while (impl.next(&mut_iter)) |n| {
-        sum += n;
+// A type satisfying the interface
+const MyReader = struct {
+    buffer: []const u8,
+    pos: usize,
+
+    pub const ReadError = error{};
+
+    pub fn read(self: *@This(), out_buffer: []u8) anyerror!usize {
+        const len = @min(self.buffer[self.pos..].len, out_buffer.len);
+        @memcpy(
+            out_buffer[0..len],
+            self.buffer[self.pos..][0..len],
+        );
+        self.pos += len;
+        return len;
     }
-    return sum;
-}
+};
 
-test {
-    const SliceIter = struct {
-        slice: []const u32,
+pub const IO = struct {
+    pub inline fn read(
+        reader_ctx: anytype,
+        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        buffer: []u8,
+    ) reader_impl.ReadError!usize {
+        return @errorCast(reader_impl.read(
+            reader_ctx,
+            buffer,
+        ));
+    }
 
-        pub fn init(s: []const u32) @This() {
-            return .{ .slice = s, };
-        }
+    pub inline fn readAll(
+        reader_ctx: anytype,
+        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        buffer: []u8,
+    ) reader_impl.ReadError!usize {
+        return readAtLeast(reader_ctx, reader_impl, buffer, buffer.len);
+    }
+};
 
-        pub fn next(self: *@This()) ?u32 {
-            if (self.slice.len == 0) {
-                return null;
-            }
-            const head = self.slice[0];
-            self.slice = self.slice[1..];
-            return head;
-        }
-    };
-    const nums = [_]u32{ 1, 2, 3, 4, 5, };
-    const total = sum(SliceIter.init(&nums), .{});
-    testing.expectEqual(@as(u32, 15), total);
+test "explicit implementation" {
+    const in_buf: []const u8 = "I really hope that this works!";
+    var reader = MyReader{ .buffer = in_buf, .pos = 0 };
+
+
+    //the implementation can be default constructed
+    var out_buf: [16]u8 = undefined;
+    const len = try IO.readAll(&reader, .{}, &out_buf);
+
+    try testing.expectEqualSlices(u8, in_buf[0..len], out_buf[0..len]);
 }
 ```
 
@@ -265,60 +286,6 @@ Works for any type.
 
 Unwraps any number of layers of `*`, `?`, or `!` and returns the
 underlying type. E.g. `Unwrap(!*?*u8) = u8`.
-
-#### Example
-
-```Zig
-pub fn Reader(comptime Type: type) type {
-    return struct {
-        pub const read = fn (self: Type, buffer: []u8) anyerror!usize;
-
-        pub inline fn readAll(self: Type, buffer: []u8) anyerror!usize {
-            var index: usize = 0;
-            while (index < buffer.len) {
-                const amt = try Unwrap(Type).read(self, buffer[index..]);
-                if (amt == 0) break;
-                index += amt;
-            }
-            return index;
-        }
-    };
-}
-
-pub fn readFromReader(
-    rdr_data: anytype,
-    comptime rdr_impl: zimpl.Impl(@TypeOf(rdr_data), Reader),
-    output: []u8,
-) !void {
-    const len = try rdr_impl.readAll(rdr_data, output);
-    if (len != output.len) {
-        return error.EndOfStream;
-    }
-}
-
-const MyReader = struct {
-    buffer: []const u8,
-    pos: usize,
-
-    pub fn read(self: *@This(), out_buffer: []u8) anyerror!usize {
-        const len = @min(self.buffer[self.pos..].len, out_buffer.len);
-        @memcpy(
-            out_buffer[0..len],
-            self.buffer[self.pos..][0..len],
-        );
-        self.pos += len;
-        return len;
-    }
-};
-
-test {
-    const in_buf: []const u8 = "I really hope that this works!";
-    var reader = MyReader{ .buffer = in_buf, .pos = 0 };
-    var out_buf: [16]u8 = undefined;
-    try readFromReader(&reader, .{}, &out_buf);
-    try testing.expectEqualSlices(u8, in_buf[0..out_buf.len], &out_buf);
-}
-```
 
 [1]: https://github.com/permutationlock/ztrait
 [2]: https://en.wikipedia.org/wiki/Static_dispatch
