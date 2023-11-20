@@ -97,15 +97,19 @@ const Server = struct {
 
     pub fn poll(
         self: *Self,
-        handler: anytype,
-        handler_impl: Impl(@TypeOf(handler), Handler)
+        handler_ctx: anytype,
+        handler_impl: Impl(@TypeOf(handler_ctx), Handler)
     ) void {
         try self.pollSockets();
         while (self.getEvent()) |evt| {
             switch (evt) {
-                .open => |handle| handler_impl.onOpen(handler, handle),
-                .msg => |msg| handler_impl.onMessage(handler, msg.handle, msg.bytes),
-                .close => |handle| handler_impl.onClose(handler, handle),
+                .open => |handle| handler_impl.onOpen(handler_ctx, handle),
+                .msg => |msg| handler_impl.onMessage(
+                    handler_ctx,
+                    msg.handle,
+                    msg.bytes,
+                ),
+                .close => |handle| handler_impl.onClose(handler_ctx, handle),
             }
         }
     }
@@ -205,7 +209,7 @@ pub const IO = struct {
     }
 };
 
-// A type satisfying the interface
+// A type satisfying the Reader interface
 const MyReader = struct {
     buffer: []const u8,
     pos: usize,
@@ -233,6 +237,8 @@ test {
     try testing.expectEqualSlices(u8, in_buf[0..len], out_buf[0..len]);
 }
 ```
+A more complete zimpl implementation of the interfaces in
+`std.io` is provided in [examples/io.zig][6].
 
 ### `PtrChild`
 
@@ -306,6 +312,7 @@ underlying type. E.g. `Unwrap(!*?*u8) = u8`.
 [3]: https://github.com/permutationlock/zimpl/blob/main/examples/count.zig
 [4]: https://github.com/permutationlock/zimpl/blob/main/examples/iterator.zig
 [5]: https://musing.permutationlock.com/posts/blog-working_with_anytype.html
+[6]: https://github.com/permutationlock/zimpl/blob/main/examples/io.zig
 
 [^1]: Technically default values are inferred from `Unwrap(Type)`.
     But note that if `Type` has a namespace then `Unwrap(Type)=Type`.
