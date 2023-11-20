@@ -79,9 +79,9 @@ would need to be defined again separately.
 The idea behind `zimpl` is to try and get the best of both worlds:
  - Library writers define interfaces and require an interface
    implementation to be passed alongside each generic parameter.
- - Library consumers can define interface
-   implementations for types, and if a type has matching
-   declarations for an interfaces then the implementation
+ - Library consumers must define interface
+   implementations, but if a type has declarations matching
+   an interface then the implementation
    can be inferred via a default constructor.
 
 ```Zig
@@ -89,16 +89,16 @@ const Server = struct {
     // ...
     pub fn Handler(comptime Type: type) type {
         return struct {
-            pub const onOpen = fn (*Type, Handle) void;
-            pub const onMessage = fn (*Type, Handle, []const u8) void;
-            pub const onClose = fn (*Type, Handle) void;
+            pub const onOpen = fn (Type, Handle) void;
+            pub const onMessage = fn (Type, Handle, []const u8) void;
+            pub const onClose = fn (Type, Handle) void;
         };
     }
 
     pub fn poll(
         self: *Self,
         handler: anytype,
-        handler_impl: Impl(PtrChild(@TypeOf(handler)), Handler)
+        handler_impl: Impl(@TypeOf(handler), Handler)
     ) void {
         try self.pollSockets();
         while (self.getEvent()) |evt| {
@@ -128,7 +128,7 @@ For a full discussion on the above example see [this article][5].
 
 ## The zimpl library
 
-The above might sound complicated, but the `zimpl` module is fewer than
+The above might sound complicated, but the `zimpl` module is around
 100 lines of code
 and exposes exactly three declarations: `Impl`, `PtrChild`, and
 `Unwrap`.
@@ -167,6 +167,44 @@ pub fn Reader(comptime Type: type) type {
     };
 }
 
+// A collection of functions using the interface
+pub const IO = struct {
+    pub inline fn read(
+        reader_ctx: anytype,
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        buffer: []u8,
+    ) reader_impl.ReadError!usize {
+        return @errorCast(reader_impl.read(
+            reader_ctx,
+            buffer,
+        ));
+    }
+
+    pub inline fn readAll(
+        reader_ctx: anytype,
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        buffer: []u8,
+    ) reader_impl.ReadError!usize {
+        return readAtLeast(reader_ctx, reader_impl, buffer, buffer.len);
+    }
+
+    pub inline fn readAtLeast(
+        reader_ctx: anytype,
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        buffer: []u8,
+        len: usize,
+    ) reader_impl.ReadError!usize {
+        assert(len <= buffer.len);
+        var index: usize = 0;
+        while (index < len) {
+            const amt = try read(reader_ctx, reader_impl, buffer[index..]);
+            if (amt == 0) break;
+            index += amt;
+        }
+        return index;
+    }
+};
+
 // A type satisfying the interface
 const MyReader = struct {
     buffer: []const u8,
@@ -185,33 +223,10 @@ const MyReader = struct {
     }
 };
 
-pub const IO = struct {
-    pub inline fn read(
-        reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
-        buffer: []u8,
-    ) reader_impl.ReadError!usize {
-        return @errorCast(reader_impl.read(
-            reader_ctx,
-            buffer,
-        ));
-    }
-
-    pub inline fn readAll(
-        reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
-        buffer: []u8,
-    ) reader_impl.ReadError!usize {
-        return readAtLeast(reader_ctx, reader_impl, buffer, buffer.len);
-    }
-};
-
-test "explicit implementation" {
+test {
     const in_buf: []const u8 = "I really hope that this works!";
     var reader = MyReader{ .buffer = in_buf, .pos = 0 };
 
-
-    //the implementation can be default constructed
     var out_buf: [16]u8 = undefined;
     const len = try IO.readAll(&reader, .{}, &out_buf);
 

@@ -14,6 +14,30 @@ pub fn Reader(comptime Type: type) type {
     };
 }
 
+pub fn Writer(comptime Type: type) type {
+    return struct {
+        pub const WriteError = type;
+        pub const write = fn (
+            writer_ctx: Type,
+            bytes: []const u8,
+        ) anyerror!usize;
+    };
+}
+
+pub fn Seekable(comptime Type: type) type {
+    return struct {
+        pub const SeekError = type;
+
+        pub const seekTo = fn (Type, u64) anyerror!void;
+        pub const seekBy = fn (Type, i64) anyerror!void;
+
+        pub const GetSeekPosError = type;
+
+        pub const getPos = fn (Type) anyerror!u64;
+        pub const getEndPos = fn (Type) anyerror!u64;
+    };
+}
+
 pub const IO = struct {
     pub inline fn read(
         reader_ctx: anytype,
@@ -418,10 +442,112 @@ pub const IO = struct {
 
         return E.InvalidValue;
     }
+
+    pub fn write(
+        writer_ctx: anytype,
+        writer_impl: Impl(@TypeOf(writer_ctx), Writer),
+        bytes: []const u8,
+    ) writer_impl.WriteError!usize {
+        return @errorCast(writer_impl.write(writer_ctx, bytes));
+    }
+
+    pub fn writeAll(
+        writer_ctx: anytype,
+        writer_impl: Impl(@TypeOf(writer_ctx), Writer),
+        bytes: []const u8,
+    ) writer_impl.WriteError!void {
+        var index: usize = 0;
+        while (index != bytes.len) {
+            index += try write(writer_ctx, writer_impl, bytes[index..]);
+        }
+    }
+
+    //pub fn print(writer_ctx: anytype, writer_impl: Impl(@TypeOf(writer_ctx), Writer), comptime format: []const u8, args: anytype,) writer_impl.WriteError!void {
+    //    return std.fmt.format(self, format, args);
+    //}
+
+    pub fn writeByte(
+        writer_ctx: anytype,
+        writer_impl: Impl(@TypeOf(writer_ctx), Writer),
+        byte: u8,
+    ) writer_impl.WriteError!void {
+        const array = [1]u8{byte};
+        return writeAll(writer_ctx, writer_impl, &array);
+    }
+
+    pub fn writeByteNTimes(
+        writer_ctx: anytype,
+        writer_impl: Impl(@TypeOf(writer_ctx), Writer),
+        byte: u8,
+        n: usize,
+    ) writer_impl.WriteError!void {
+        var bytes: [256]u8 = undefined;
+        @memset(bytes[0..], byte);
+
+        var remaining: usize = n;
+        while (remaining > 0) {
+            const to_write = @min(remaining, bytes.len);
+            try writeAll(writer_ctx, writer_impl, bytes[0..to_write]);
+            remaining -= to_write;
+        }
+    }
+
+    pub inline fn writeInt(
+        writer_ctx: anytype,
+        writer_impl: Impl(@TypeOf(writer_ctx), Writer),
+        comptime T: type,
+        value: T,
+        endian: std.builtin.Endian,
+    ) writer_impl.WriteError!void {
+        var bytes: [@divExact(@typeInfo(T).Int.bits, 8)]u8 = undefined;
+        mem.writeInt(std.math.ByteAlignedInt(@TypeOf(value)), &bytes, value, endian);
+        return writeAll(writer_ctx, writer_impl, &bytes);
+    }
+
+    pub fn writeStruct(
+        writer_ctx: anytype,
+        writer_impl: Impl(@TypeOf(writer_ctx), Writer),
+        value: anytype,
+    ) writer_impl.WriteError!void {
+        // Only extern and packed structs have defined in-memory layout.
+        comptime assert(@typeInfo(@TypeOf(value)).Struct.layout != .Auto);
+        return writeAll(writer_ctx, writer_impl, mem.asBytes(&value));
+    }
+
+    pub fn seekTo(
+        seek_ctx: anytype,
+        seek_impl: Impl(@TypeOf(seek_ctx), Seekable),
+        pos: u64,
+    ) seek_impl.SeekError!void {
+        return @errorCast(seek_impl.seekTo(seek_ctx, pos));
+    }
+
+    pub fn seekBy(
+        seek_ctx: anytype,
+        seek_impl: Impl(@TypeOf(seek_ctx), Seekable),
+        amt: i64,
+    ) seek_impl.SeekError!void {
+        return @errorCast(seek_impl.seekBy(seek_ctx, amt));
+    }
+
+    pub fn getPos(
+        seek_ctx: anytype,
+        seek_impl: Impl(@TypeOf(seek_ctx), Seekable),
+    ) seek_impl.GetSeekPosError!u64 {
+        return @errorCast(seek_impl.getPos(seek_ctx));
+    }
+
+    pub fn getEndPos(
+        seek_ctx: anytype,
+        seek_impl: Impl(@TypeOf(seek_ctx), Seekable),
+    ) seek_impl.GetSeekPosError!u64 {
+        return @errorCast(seek_impl.getEndPos(seek_ctx));
+    }
 };
 
-const MyReader = struct {
-    buffer: []const u8,
+// a stream that implements Reader, Writer, and Seekable
+const FixedBufferStream = struct {
+    buffer: []u8,
     pos: usize,
 
     pub const ReadError = error{};
@@ -435,12 +561,64 @@ const MyReader = struct {
         self.pos += len;
         return len;
     }
+
+    pub const WriteError = error{};
+
+    pub fn write(self: *@This(), in_buffer: []const u8) anyerror!usize {
+        const len = @min(self.buffer[self.pos..].len, in_buffer.len);
+        @memcpy(
+            self.buffer[self.pos..][0..len],
+            in_buffer[0..len],
+        );
+        self.pos += len;
+        return len;
+    }
+
+    pub const SeekError = error{};
+
+    pub fn seekTo(self: *@This(), pos: u64) anyerror!void {
+        if (std.math.cast(usize, pos)) |usize_pos| {
+            self.pos = @min(self.buffer.len, usize_pos);
+        }
+    }
+
+    pub fn seekBy(self: *@This(), amt: i64) anyerror!void {
+        const negate = amt < 0;
+        if (std.math.cast(usize, @abs(amt))) |abs_amt| {
+            if (negate) {
+                if (abs_amt > self.pos) {
+                    self.pos = 0;
+                } else {
+                    self.pos -= abs_amt;
+                }
+            } else {
+                self.pos += abs_amt;
+            }
+        }
+    }
+
+    pub const GetSeekPosError = error{};
+
+    pub fn getPos(self: *@This()) anyerror!u64 {
+        return self.pos;
+    }
+
+    pub fn getEndPos(self: *@This()) anyerror!u64 {
+        return self.buffer.len;
+    }
 };
 
-test "explicit implementation" {
+test "write, seek, and read" {
     const in_buf: []const u8 = "I really hope that this works!";
-    var reader = MyReader{ .buffer = in_buf, .pos = 0 };
-    var out_buf: [16]u8 = undefined;
-    const len = try IO.readAll(&reader, .{}, &out_buf);
-    try testing.expectEqualSlices(u8, in_buf[0..len], out_buf[0..len]);
+    var stream_buf: [in_buf.len]u8 = undefined;
+    var stream = FixedBufferStream{ .buffer = &stream_buf, .pos = 0 };
+
+    const wlen = try IO.write(&stream, .{}, in_buf);
+    try testing.expectEqual(in_buf.len, wlen);
+
+    var out_buf: [in_buf.len]u8 = undefined;
+    try IO.seekTo(&stream, .{}, 0);
+    const rlen = try IO.read(&stream, .{}, &out_buf);
+    try testing.expectEqual(in_buf.len, rlen);
+    try testing.expectEqualSlices(u8, in_buf, &out_buf);
 }
