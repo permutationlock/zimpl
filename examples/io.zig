@@ -459,7 +459,7 @@ const FixedBufferStream = struct {
 
     pub const ReadError = error{};
 
-    pub fn read(self: *@This(), out_buffer: []u8) anyerror!usize {
+    pub fn read(self: *@This(), out_buffer: []u8) ReadError!u64 {
         const len = @min(self.buffer[self.pos..].len, out_buffer.len);
         @memcpy(
             out_buffer[0..len],

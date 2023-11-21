@@ -60,7 +60,7 @@ const Server = struct {
 // using the server library
 var server = Server{};
 var handler = MyHandler{};
-try server.listen(port);
+try server.listen(8080);
 while (true) {
     try server.poll(
         &handler,
@@ -78,11 +78,9 @@ would need to be defined again separately.
 
 The idea behind `zimpl` is to try and get the best of both worlds:
  - Library writers define interfaces and require an interface
-   implementation to be passed alongside each generic parameter.
- - Library consumers must define interface
-   implementations, but if a type has declarations matching
-   an interface then the implementation
-   can be inferred via a default constructor.
+   implementation alongside each generic parameter.
+ - Library consumers may infer interface implementations using the
+   default constructor.
 
 ```Zig
 const Server = struct {
@@ -104,11 +102,7 @@ const Server = struct {
         while (self.getEvent()) |evt| {
             switch (evt) {
                 .open => |handle| handler_impl.onOpen(handler_ctx, handle),
-                .msg => |msg| handler_impl.onMessage(
-                    handler_ctx,
-                    msg.handle,
-                    msg.bytes,
-                ),
+                .msg => |msg| handler_impl.onMessage(handler_ctx, msg.handle, msg.bytes),
                 .close => |handle| handler_impl.onClose(handler_ctx, handle),
             }
         }
@@ -120,7 +114,7 @@ const Server = struct {
 // using the server library
 var server = Server{};
 var handler = MyHandler{};
-try server.listen(port);
+try server.listen(8080);
 while (true) {
     // Impl(*MyHandler, Handler) can be default constructed because MyHandler
     // has onOpen, onMessage, and onClose member functions of the correct types
@@ -143,17 +137,16 @@ pub fn Impl(comptime Type: type, comptime Ifc: fn (comptime type) type) type { .
 
 #### Arguments
 
-For all types `T`, the return type `Ifc(T)` must be a struct type and any public
-declarations of `Ifc(T)` must be of type `type`.
+For all types `T`, the type `Ifc(T)` must be a struct with only public
+declarations of type `type`.
 
 #### Return value
 
-The return value is a struct type containing one field
+The return value `Impl(Type, Ifc)` is a struct type containing one field
 for each type valued declaration of `Ifc(Type)`.
 The default value of each field is set to be the
 declaration
-of `Type` of the same name, if such a declaration exists
-with a matching type[^1].
+of `Type` of the same name, if such a declaration exists[^1].
 
 If `Ifc(Type)` contains a declaration that isn't a type, then a compile
 error is produced.
@@ -214,7 +207,7 @@ const FixedBufferReader = struct {
 
     pub const ReadError = error{};
 
-    pub fn read(self: *@This(), out_buffer: []u8) anyerror!usize {
+    pub fn read(self: *@This(), out_buffer: []u8) ReadError!usize {
         const len = @min(self.buffer[self.pos..].len, out_buffer.len);
         @memcpy(
             out_buffer[0..len],
@@ -234,6 +227,14 @@ test {
 
     try testing.expectEqualSlices(u8, in_buf[0..len], out_buf[0..len]);
 }
+```
+The concrete `Reader` implementation type generated for
+`FixeBufferReader` in the example above is shown below.
+```
+Impl(*FixedBufferReader, Reader) = struct {
+    ReadError: type = FixeBufferError.ReadError,
+    read: fn (*FixedBufferReader, []u8) anyerror!void = FixedBufferError.read,
+};
 ```
 A more complete Zimpl implementation of the interfaces in
 `std.io` is available in [examples/io.zig][6].

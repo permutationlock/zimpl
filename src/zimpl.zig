@@ -23,9 +23,10 @@ pub fn Impl(comptime Type: type, comptime Ifc: IfcFn) type {
         switch (@typeInfo(UWType)) {
             inline else => |info| if (@hasField(@TypeOf(info), "decls")) {
                 if (@hasDecl(UWType, decl.name)) {
-                    if (@TypeOf(@field(UWType, decl.name)) == fld.*.type) {
-                        fld.*.default_value = &@field(UWType, decl.name);
-                    }
+                    fld.*.default_value = &@as(fld_type, @field(
+                        UWType,
+                        decl.name,
+                    ));
                 }
             },
         }
