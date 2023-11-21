@@ -7,41 +7,41 @@ const assert = std.debug.assert;
 const zimpl = @import("zimpl");
 const Impl = zimpl.Impl;
 
-pub fn Reader(comptime Type: type) type {
-    return struct {
-        pub const ReadError = type;
-        pub const read = fn (reader_ctx: Type, buffer: []u8) anyerror!usize;
-    };
-}
-
-pub fn Writer(comptime Type: type) type {
-    return struct {
-        pub const WriteError = type;
-        pub const write = fn (
-            writer_ctx: Type,
-            bytes: []const u8,
-        ) anyerror!usize;
-    };
-}
-
-pub fn Seekable(comptime Type: type) type {
-    return struct {
-        pub const SeekError = type;
-
-        pub const seekTo = fn (Type, u64) anyerror!void;
-        pub const seekBy = fn (Type, i64) anyerror!void;
-
-        pub const GetSeekPosError = type;
-
-        pub const getPos = fn (Type) anyerror!u64;
-        pub const getEndPos = fn (Type) anyerror!u64;
-    };
-}
-
 pub const IO = struct {
+    pub fn Reader(comptime Type: type) type {
+        return struct {
+            pub const ReadError = type;
+            pub const read = fn (reader_ctx: Type, buffer: []u8) anyerror!usize;
+        };
+    }
+
+    pub fn Writer(comptime Type: type) type {
+        return struct {
+            pub const WriteError = type;
+            pub const write = fn (
+                writer_ctx: Type,
+                bytes: []const u8,
+            ) anyerror!usize;
+        };
+    }
+
+    pub fn Seekable(comptime Type: type) type {
+        return struct {
+            pub const SeekError = type;
+
+            pub const seekTo = fn (Type, u64) anyerror!void;
+            pub const seekBy = fn (Type, i64) anyerror!void;
+
+            pub const GetSeekPosError = type;
+
+            pub const getPos = fn (Type) anyerror!u64;
+            pub const getEndPos = fn (Type) anyerror!u64;
+        };
+    }
+
     pub inline fn read(
         reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
         buffer: []u8,
     ) reader_impl.ReadError!usize {
         return @errorCast(reader_impl.read(
@@ -52,7 +52,7 @@ pub const IO = struct {
 
     pub inline fn readAll(
         reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
         buffer: []u8,
     ) reader_impl.ReadError!usize {
         return readAtLeast(reader_ctx, reader_impl, buffer, buffer.len);
@@ -60,7 +60,7 @@ pub const IO = struct {
 
     pub inline fn readAtLeast(
         reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
         buffer: []u8,
         len: usize,
     ) reader_impl.ReadError!usize {
@@ -76,187 +76,78 @@ pub const IO = struct {
 
     pub inline fn readNoEof(
         reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
         buf: []u8,
     ) (reader_impl.ReadError || error{EndOfStream})!void {
-        const amt_read = try readAll(reader_ctx, buf);
+        const amt_read = try readAll(reader_ctx, reader_impl, buf);
         if (amt_read < buf.len) return error.EndOfStream;
-    }
-
-    pub inline fn readAllArrayList(
-        reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
-        array_list: *std.ArrayList(u8),
-        max_append_size: usize,
-    ) (reader_impl.ReadError || error{ EndOfStream, StreamTooLong })!void {
-        return readAllArrayListAligned(
-            reader_ctx,
-            null,
-            array_list,
-            max_append_size,
-        );
-    }
-
-    pub inline fn readAllArrayListAligned(
-        reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
-        comptime alignment: ?u29,
-        array_list: *std.ArrayListAligned(u8, alignment),
-        max_append_size: usize,
-    ) (reader_impl.ReadError || error{StreamTooLong})!void {
-        try array_list.ensureTotalCapacity(@min(max_append_size, 4096));
-        const original_len = array_list.items.len;
-        var start_index: usize = original_len;
-        while (true) {
-            array_list.expandToCapacity();
-            const dest_slice = array_list.items[start_index..];
-            const bytes_read = try readAll(reader_ctx, dest_slice);
-            start_index += bytes_read;
-
-            if (start_index - original_len > max_append_size) {
-                array_list.shrinkAndFree(original_len + max_append_size);
-                return error.StreamTooLong;
-            }
-
-            if (bytes_read != dest_slice.len) {
-                array_list.shrinkAndFree(start_index);
-                return;
-            }
-
-            try array_list.ensureTotalCapacity(start_index + 1);
-        }
-    }
-
-    pub inline fn readAllAlloc(
-        reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
-        allocator: mem.Allocator,
-        max_size: usize,
-    ) (reader_impl.ReadError || error{StreamTooLong})![]u8 {
-        var array_list = std.ArrayList(u8).init(allocator);
-        defer array_list.deinit();
-        try readAllArrayList(reader_ctx, &array_list, max_size);
-        return try array_list.toOwnedSlice();
-    }
-
-    pub inline fn readUntilDelimiterArrayList(
-        reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
-        array_list: *std.ArrayList(u8),
-        delimiter: u8,
-        max_size: usize,
-    ) (reader_impl.ReadError || error{ EndOfStream, StreamTooLong })!void {
-        array_list.shrinkRetainingCapacity(0);
-        try streamUntilDelimiter(
-            reader_ctx,
-            array_list.writer(),
-            delimiter,
-            max_size,
-        );
-    }
-
-    pub inline fn readUntilDelimiterAlloc(
-        reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
-        allocator: mem.Allocator,
-        delimiter: u8,
-        max_size: usize,
-    ) (reader_impl.ReadError || error{EndOfStream})![]u8 {
-        var array_list = std.ArrayList(u8).init(allocator);
-        defer array_list.deinit();
-        try streamUntilDelimiter(
-            reader_ctx,
-            array_list.writer(),
-            delimiter,
-            max_size,
-        );
-        return try array_list.toOwnedSlice();
     }
 
     pub inline fn readUntilDelimiter(
         reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
         buf: []u8,
         delimiter: u8,
     ) (reader_impl.ReadError || error{ EndOfStream, StreamTooLong })![]u8 {
-        var fbs = std.io.fixedBufferStream(buf);
+        var fbs: FixedBufferStream = .{ .buffer = buf, .pos = 0 };
         try streamUntilDelimiter(
             reader_ctx,
-            fbs.writer(),
-            delimiter,
+            reader_impl,
+            &fbs,
+            .{},
             fbs.buffer.len,
         );
-        const output = fbs.getWritten();
+        const output = fbs.buffer[0..fbs.pos];
         buf[output.len] = delimiter; // emulating old behaviour
         return output;
     }
 
-    pub inline fn readUntilDelimiterOrEofAlloc(
-        reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
-        allocator: mem.Allocator,
-        delimiter: u8,
-        max_size: usize,
-    ) (reader_impl.ReadError || error{StreamTooLong})!?[]u8 {
-        var array_list = std.ArrayList(u8).init(allocator);
-        defer array_list.deinit();
-        streamUntilDelimiter(
-            reader_ctx,
-            array_list.writer(),
-            delimiter,
-            max_size,
-        ) catch |err| switch (err) {
-            error.EndOfStream => if (array_list.items.len == 0) {
-                return null;
-            },
-            else => |e| return e,
-        };
-        return try array_list.toOwnedSlice();
-    }
-
     pub inline fn readUntilDelimiterOrEof(
         reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
         buf: []u8,
         delimiter: u8,
     ) (reader_impl.ReadError || error{StreamTooLong})!?[]u8 {
-        var fbs = std.io.fixedBufferStream(buf);
+        var fbs: FixedBufferStream = .{ .buffer = buf, .pos = 0 };
         streamUntilDelimiter(
             reader_ctx,
-            fbs.writer(),
+            reader_impl,
+            &fbs,
+            .{},
             delimiter,
             fbs.buffer.len,
         ) catch |err| switch (err) {
-            error.EndOfStream => if (fbs.getWritten().len == 0) {
+            error.EndOfStream => if (fbs.pos == 0) {
                 return null;
             },
 
             else => |e| return e,
         };
-        const output = fbs.getWritten();
+        const output = fbs.buffer[0..fbs.pos];
         buf[output.len] = delimiter; // emulating old behaviour
         return output;
     }
 
     pub inline fn streamUntilDelimiter(
         reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
-        writer: anytype,
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        writer_ctx: anytype,
+        writer_impl: Impl(@TypeOf(writer_ctx), Writer),
         delimiter: u8,
         optional_max_size: ?usize,
     ) (reader_impl.ReadError || error{ EndOfStream, StreamTooLong })!void {
         if (optional_max_size) |max_size| {
             for (0..max_size) |_| {
-                const byte: u8 = try readByte(reader_ctx);
+                const byte: u8 = try readByte(reader_ctx, reader_impl);
                 if (byte == delimiter) return;
-                try writer.writeByte(byte);
+                try writeByte(writer_ctx, writer_impl, byte);
             }
             return error.StreamTooLong;
         } else {
             while (true) {
-                const byte: u8 = try readByte(reader_ctx);
+                const byte: u8 = try readByte(reader_ctx, reader_impl);
                 if (byte == delimiter) return;
-                try writer.writeByte(byte);
+                try writeByte(writer_ctx, writer_impl, byte);
             }
             // Can not throw `error.StreamTooLong` since there are no
             // boundary.
@@ -265,11 +156,11 @@ pub const IO = struct {
 
     pub inline fn skipUntilDelimiterOrEof(
         reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
         delimiter: u8,
     ) reader_impl.ReadError!void {
         while (true) {
-            const byte = readByte(reader_ctx) catch |err| switch (err) {
+            const byte = readByte(reader_ctx, reader_impl) catch |err| switch (err) {
                 error.EndOfStream => return,
                 else => |e| return e,
             };
@@ -279,7 +170,7 @@ pub const IO = struct {
 
     pub inline fn readByte(
         reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
     ) (reader_impl.ReadError || error{EndOfStream})!u8 {
         var result: [1]u8 = undefined;
         const amt_read = try read(reader_ctx, reader_impl, result[0..]);
@@ -289,24 +180,24 @@ pub const IO = struct {
 
     pub inline fn readByteSigned(
         reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
     ) (reader_impl.ReadError || error{EndOfStream})!i8 {
-        return @as(i8, @bitCast(try readByte(reader_ctx)));
+        return @as(i8, @bitCast(try readByte(reader_ctx, reader_impl)));
     }
 
     pub inline fn readBytesNoEof(
         reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
         comptime num_bytes: usize,
     ) (reader_impl.ReadError || error{EndOfStream})![num_bytes]u8 {
         var bytes: [num_bytes]u8 = undefined;
-        try readNoEof(reader_ctx, &bytes);
+        try readNoEof(reader_ctx, reader_impl, &bytes);
         return bytes;
     }
 
     pub inline fn readIntoBoundedBytes(
         reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
         comptime num_bytes: usize,
         bounded: *std.BoundedArray(u8, num_bytes),
     ) reader_impl.ReadError!void {
@@ -328,22 +219,23 @@ pub const IO = struct {
 
     pub inline fn readBoundedBytes(
         reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
         comptime num_bytes: usize,
     ) reader_impl.ReadError!std.BoundedArray(u8, num_bytes) {
         var result = std.BoundedArray(u8, num_bytes){};
-        try readIntoBoundedBytes(reader_ctx, num_bytes, &result);
+        try readIntoBoundedBytes(reader_ctx, reader_impl, num_bytes, &result);
         return result;
     }
 
     pub inline fn readInt(
         reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
         comptime T: type,
         endian: std.builtin.Endian,
     ) (reader_impl.ReadError || error{EndOfStream})!T {
         const bytes = try readBytesNoEof(
             reader_ctx,
+            reader_impl,
             @divExact(@typeInfo(T).Int.bits, 8),
         );
         return mem.readInt(T, &bytes, endian);
@@ -351,7 +243,7 @@ pub const IO = struct {
 
     pub inline fn readVarInt(
         reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
         comptime ReturnType: type,
         endian: std.builtin.Endian,
         size: usize,
@@ -359,13 +251,13 @@ pub const IO = struct {
         assert(size <= @sizeOf(ReturnType));
         var bytes_buf: [@sizeOf(ReturnType)]u8 = undefined;
         const bytes = bytes_buf[0..size];
-        try readNoEof(reader_ctx, bytes);
+        try readNoEof(reader_ctx, reader_impl, bytes);
         return mem.readVarInt(ReturnType, bytes, endian);
     }
 
     pub inline fn skipBytes(
         reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
         num_bytes: u64,
         comptime options: struct {
             buf_size: usize = 512,
@@ -376,20 +268,20 @@ pub const IO = struct {
 
         while (remaining > 0) {
             const amt = @min(remaining, options.buf_size);
-            try readNoEof(reader_ctx, buf[0..amt]);
+            try readNoEof(reader_ctx, reader_impl, buf[0..amt]);
             remaining -= amt;
         }
     }
 
     pub inline fn isBytes(
         reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
         slice: []const u8,
     ) (reader_impl.ReadError || error{EndOfStream})!bool {
         var i: usize = 0;
         var matches = true;
         while (i < slice.len) : (i += 1) {
-            if (slice[i] != try readByte(reader_ctx)) {
+            if (slice[i] != try readByte(reader_ctx, reader_impl)) {
                 matches = false;
             }
         }
@@ -398,22 +290,22 @@ pub const IO = struct {
 
     pub inline fn readStruct(
         reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
         comptime T: type,
     ) (reader_impl.ReadError || error{EndOfStream})!T {
         // Only extern and packed structs have defined in-memory layout.
         comptime assert(@typeInfo(T).Struct.layout != .Auto);
         var res: [1]T = undefined;
-        try readNoEof(reader_ctx, mem.sliceAsBytes(res[0..]));
+        try readNoEof(reader_ctx, reader_impl, mem.sliceAsBytes(res[0..]));
         return res[0];
     }
 
     pub inline fn readStructBig(
         reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
         comptime T: type,
     ) (reader_impl.ReadError || error{EndOfStream})!T {
-        var res = try readStruct(reader_ctx, T);
+        var res = try readStruct(reader_ctx, reader_impl, T);
         if (native_endian != std.builtin.Endian.big) {
             mem.byteSwapAllFields(T, &res);
         }
@@ -422,7 +314,7 @@ pub const IO = struct {
 
     pub inline fn readEnum(
         reader_ctx: anytype,
-        comptime reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
         comptime Enum: type,
         endian: std.builtin.Endian,
     ) (reader_impl.ReadError || error{ EndOfStream, InvalidValue })!Enum {
@@ -432,7 +324,12 @@ pub const IO = struct {
             InvalidValue,
         };
         const type_info = @typeInfo(Enum).Enum;
-        const tag = try readInt(reader_ctx, type_info.tag_type, endian);
+        const tag = try readInt(
+            reader_ctx,
+            reader_impl,
+            type_info.tag_type,
+            endian,
+        );
 
         inline for (std.meta.fields(Enum)) |field| {
             if (tag == field.value) {
@@ -462,9 +359,16 @@ pub const IO = struct {
         }
     }
 
-    //pub fn print(writer_ctx: anytype, writer_impl: Impl(@TypeOf(writer_ctx), Writer), comptime format: []const u8, args: anytype,) writer_impl.WriteError!void {
-    //    return std.fmt.format(self, format, args);
-    //}
+    // would need to re-implement fmt to zimpl style to define print
+    //
+    // pub fn print(
+    //     writer_ctx: anytype,
+    //     writer_impl: Impl(@TypeOf(writer_ctx), Writer),
+    //     comptime format: []const u8,
+    //     args: anytype,
+    // ) writer_impl.WriteError!void {
+    //     return std.fmt.format(writer_ctx, writer_impl, format, args);
+    // }
 
     pub fn writeByte(
         writer_ctx: anytype,
@@ -500,7 +404,12 @@ pub const IO = struct {
         endian: std.builtin.Endian,
     ) writer_impl.WriteError!void {
         var bytes: [@divExact(@typeInfo(T).Int.bits, 8)]u8 = undefined;
-        mem.writeInt(std.math.ByteAlignedInt(@TypeOf(value)), &bytes, value, endian);
+        mem.writeInt(
+            std.math.ByteAlignedInt(@TypeOf(value)),
+            &bytes,
+            value,
+            endian,
+        );
         return writeAll(writer_ctx, writer_impl, &bytes);
     }
 
@@ -610,6 +519,7 @@ const FixedBufferStream = struct {
 
 test "write, seek, and read" {
     const in_buf: []const u8 = "I really hope that this works!";
+
     var stream_buf: [in_buf.len]u8 = undefined;
     var stream = FixedBufferStream{ .buffer = &stream_buf, .pos = 0 };
 
@@ -618,6 +528,8 @@ test "write, seek, and read" {
 
     var out_buf: [in_buf.len]u8 = undefined;
     try IO.seekTo(&stream, .{}, 0);
+    try testing.expectEqual(@as(u64, 0), try IO.getPos(&stream, .{}));
+
     const rlen = try IO.read(&stream, .{}, &out_buf);
     try testing.expectEqual(in_buf.len, rlen);
     try testing.expectEqualSlices(u8, in_buf, &out_buf);

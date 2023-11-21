@@ -26,8 +26,8 @@ pub fn Impl(comptime Type: type, comptime args: anytype) type {
                     ));
                 }
             }
-            if (MIfc) |I| {
-                break :blk I;
+            if (MIfc) |TotalIfc| {
+                break :blk TotalIfc;
             }
             @compileError(std.fmt.comptimePrint(
                 "expected tuple of '{}', found '{}'",
@@ -48,7 +48,7 @@ pub fn Impl(comptime Type: type, comptime args: anytype) type {
         const fld_type = @field(Ifc(Type), decl.name);
         if (@TypeOf(fld_type) != type) {
             @compileError(std.fmt.comptimePrint(
-                "non-type declaration '{}.{s}: {}' found in interface'",
+                "non-type declaration '{}.{s}: {}' not allowed in interface'",
                 .{ Ifc(Type), decl.name, @TypeOf(fld_type) },
             ));
         }

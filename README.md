@@ -73,7 +73,7 @@ while (true) {
 
 The drawback now is that the function signature is long and the call
 site is verbose. Additionally, if we ever want to use a `handler`
-parameter in another function then set of callback paramemters
+parameter in another function then set of callback parameters
 would need to be defined again separately.
 
 The idea behind `zimpl` is to try and get the best of both worlds:
@@ -130,7 +130,7 @@ while (true) {
 
 For a full discussion on the above example see [this article][5].
 
-## The zimpl library
+## The Zimpl library
 
 The above might sound complicated, but the `zimpl` module is around
 100 lines of code
@@ -140,25 +140,27 @@ and exposes exactly three declarations: `Impl`, `PtrChild`, and
 ### `Impl`
 
 ```Zig
-pub fn Impl(comptime Type: type, comptime Ifc: fn (type) type) type { ... }
+pub fn Impl(comptime Type: type, comptime Ifc: anytype) type { ... }
 ```
 
 #### Arguments
 
-There are no requirements for the parameters,
-but the function is only useful when called with
-specific arguments (see below).
+The `Ifc` parameter must either be of type `fn (type) type`
+or be a tuple where each field has type `fn (type) type`. Moreover,
+all types produced by such functions must be struct types
+containing only declarations of type `type`.
 
 #### Return value
 
 The return value is a struct type containing one field
-for each type valued declaration of `Ifc(Type)`.
+for each type valued declaration of `Ifc(Type)`[^2].
 The default value of each field is set to be the
 declaration
 of `Type` of the same name, if such a declaration exists
 with a matching type[^1].
 
-Declarations of `Ifc(Type)` that aren't types are ignored.
+If `Ifc(Type)` contains declarations that aren't types, then a compile
+error is produced.
 
 #### Example
 
@@ -237,7 +239,7 @@ test {
     try testing.expectEqualSlices(u8, in_buf[0..len], out_buf[0..len]);
 }
 ```
-A more complete zimpl implementation of the interfaces in
+A more complete Zimpl implementation of the interfaces in
 `std.io` is provided in [examples/io.zig][6].
 
 ### `PtrChild`
@@ -316,3 +318,13 @@ underlying type. E.g. `Unwrap(!*?*u8) = u8`.
 
 [^1]: Technically default values are inferred from `Unwrap(Type)`.
     But note that if `Type` has a namespace then `Unwrap(Type)=Type`.
+[^2]: If `Ifc` is a tuple of functions `.{ Ifc1, Ifc2, ..., IfcN }`, then
+    `Ifc(Type)` is instead constructed to as shown below below.
+    ```Zig
+    Ifc(Type) = struct {
+        pub usingnamespace Ifc1(Type);
+        pub usingnamespace Ifc2(Type);
+        ...
+        pub usingnamespace IfcN(Type);
+    };
+    ```
