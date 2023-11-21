@@ -2,43 +2,7 @@ const std = @import("std");
 
 pub const IfcFn = fn (comptime type) type;
 
-pub fn Impl(comptime Type: type, comptime args: anytype) type {
-    const Ifc: IfcFn = switch (@typeInfo(@TypeOf(args))) {
-        .Fn => if (@TypeOf(args) == IfcFn) args else @compileError(
-            std.fmt.comptimePrint(
-                "expected '{}', found '{}'",
-                .{ IfcFn, @TypeOf(args) },
-            ),
-        ),
-        .Struct => |info| blk: {
-            var MIfc: ?IfcFn = null;
-            for (info.fields) |fld| {
-                if (fld.type == IfcFn) {
-                    if (MIfc) |Ifc1| {
-                        MIfc = Union(Ifc1, @field(args, fld.name));
-                    } else {
-                        MIfc = @field(args, fld.name);
-                    }
-                } else {
-                    @compileError(std.fmt.comptimePrint(
-                        "expected '{}', found '{}'",
-                        .{ IfcFn, fld.type },
-                    ));
-                }
-            }
-            if (MIfc) |TotalIfc| {
-                break :blk TotalIfc;
-            }
-            @compileError(std.fmt.comptimePrint(
-                "expected tuple of '{}', found '{}'",
-                .{ IfcFn, @TypeOf(args) },
-            ));
-        },
-        else => @compileError(std.fmt.comptimePrint(
-            "expected tuple or '{}', found '{}'",
-            .{ IfcFn, @TypeOf(args) },
-        )),
-    };
+pub fn Impl(comptime Type: type, comptime Ifc: IfcFn) type {
     const UWType = Unwrap(Type);
     const impl_decls = getNamespace(Ifc(Type));
     var fields: [impl_decls.len]std.builtin.Type.StructField = undefined;
@@ -107,17 +71,6 @@ pub fn PtrChild(comptime Type: type) type {
         else => {},
     }
     @compileError(std.fmt.comptimePrint("expected pointer, found '{}'", .{Type}));
-}
-
-fn Union(comptime Ifc1: IfcFn, comptime Ifc2: IfcFn) IfcFn {
-    return struct {
-        pub fn Ifc(comptime Type: type) type {
-            return struct {
-                pub usingnamespace Ifc1(Type);
-                pub usingnamespace Ifc2(Type);
-            };
-        }
-    }.Ifc;
 }
 
 fn getNamespace(comptime Type: type) []const std.builtin.Type.Declaration {

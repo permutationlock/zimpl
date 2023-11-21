@@ -73,7 +73,7 @@ while (true) {
 
 The drawback now is that the function signature is long and the call
 site is verbose. Additionally, if we ever want to use a `handler`
-parameter in another function then set of callback parameters
+parameter in another function then the callback parameters
 would need to be defined again separately.
 
 The idea behind `zimpl` is to try and get the best of both worlds:
@@ -122,8 +122,8 @@ var server = Server{};
 var handler = MyHandler{};
 try server.listen(port);
 while (true) {
-    // impl can be default constructed because MyHandler has onOpen, onMessage,
-    // and onClose member functions with the correct types
+    // Impl(*MyHandler, Handler) can be default constructed because MyHandler
+    // has onOpen, onMessage, and onClose member functions of the correct types
     try server.poll(&handler, .{});
 }
 ```
@@ -132,34 +132,30 @@ For a full discussion on the above example see [this article][5].
 
 ## The Zimpl library
 
-The above might sound complicated, but the `zimpl` module is around
-100 lines of code
-and exposes exactly three declarations: `Impl`, `PtrChild`, and
-`Unwrap`.
+The `zimpl` module is around 100 lines of code and exposes exactly three
+declarations: `Impl`, `PtrChild`, and `Unwrap`.
 
 ### `Impl`
 
 ```Zig
-pub fn Impl(comptime Type: type, comptime Ifc: anytype) type { ... }
+pub fn Impl(comptime Type: type, comptime Ifc: fn (comptime type) type) type { ... }
 ```
 
 #### Arguments
 
-The `Ifc` parameter must either be of type `fn (type) type`
-or be a tuple where each field has type `fn (type) type`. Moreover,
-all types produced by such functions must be struct types
-containing only declarations of type `type`.
+For all types `T`, the return type `Ifc(T)` must be a struct type and any public
+declarations of `Ifc(T)` must be of type `type`.
 
 #### Return value
 
 The return value is a struct type containing one field
-for each type valued declaration of `Ifc(Type)`[^2].
+for each type valued declaration of `Ifc(Type)`.
 The default value of each field is set to be the
 declaration
 of `Type` of the same name, if such a declaration exists
 with a matching type[^1].
 
-If `Ifc(Type)` contains declarations that aren't types, then a compile
+If `Ifc(Type)` contains a declaration that isn't a type, then a compile
 error is produced.
 
 #### Example
@@ -212,7 +208,7 @@ pub const IO = struct {
 };
 
 // A type satisfying the Reader interface
-const MyReader = struct {
+const FixedBufferReader = struct {
     buffer: []const u8,
     pos: usize,
 
@@ -231,7 +227,7 @@ const MyReader = struct {
 
 test {
     const in_buf: []const u8 = "I really hope that this works!";
-    var reader = MyReader{ .buffer = in_buf, .pos = 0 };
+    var reader = FixedBufferReader{ .buffer = in_buf, .pos = 0 };
 
     var out_buf: [16]u8 = undefined;
     const len = try IO.readAll(&reader, .{}, &out_buf);
@@ -240,7 +236,7 @@ test {
 }
 ```
 A more complete Zimpl implementation of the interfaces in
-`std.io` is provided in [examples/io.zig][6].
+`std.io` is available in [examples/io.zig][6].
 
 ### `PtrChild`
 
@@ -318,13 +314,3 @@ underlying type. E.g. `Unwrap(!*?*u8) = u8`.
 
 [^1]: Technically default values are inferred from `Unwrap(Type)`.
     But note that if `Type` has a namespace then `Unwrap(Type)=Type`.
-[^2]: If `Ifc` is a tuple of functions `.{ Ifc1, Ifc2, ..., IfcN }`, then
-    `Ifc(Type)` is instead constructed to as shown below below.
-    ```Zig
-    Ifc(Type) = struct {
-        pub usingnamespace Ifc1(Type);
-        pub usingnamespace Ifc2(Type);
-        ...
-        pub usingnamespace IfcN(Type);
-    };
-    ```

@@ -7,6 +7,7 @@ const assert = std.debug.assert;
 const zimpl = @import("zimpl");
 const Impl = zimpl.Impl;
 
+// An implementation of the std.io interfaces in the Zimpl style
 pub const IO = struct {
     pub fn Reader(comptime Type: type) type {
         return struct {
@@ -15,39 +16,12 @@ pub const IO = struct {
         };
     }
 
-    pub fn Writer(comptime Type: type) type {
-        return struct {
-            pub const WriteError = type;
-            pub const write = fn (
-                writer_ctx: Type,
-                bytes: []const u8,
-            ) anyerror!usize;
-        };
-    }
-
-    pub fn Seekable(comptime Type: type) type {
-        return struct {
-            pub const SeekError = type;
-
-            pub const seekTo = fn (Type, u64) anyerror!void;
-            pub const seekBy = fn (Type, i64) anyerror!void;
-
-            pub const GetSeekPosError = type;
-
-            pub const getPos = fn (Type) anyerror!u64;
-            pub const getEndPos = fn (Type) anyerror!u64;
-        };
-    }
-
     pub inline fn read(
         reader_ctx: anytype,
         reader_impl: Impl(@TypeOf(reader_ctx), Reader),
         buffer: []u8,
     ) reader_impl.ReadError!usize {
-        return @errorCast(reader_impl.read(
-            reader_ctx,
-            buffer,
-        ));
+        return @errorCast(reader_impl.read(reader_ctx, buffer));
     }
 
     pub inline fn readAll(
@@ -340,6 +314,16 @@ pub const IO = struct {
         return E.InvalidValue;
     }
 
+    pub fn Writer(comptime Type: type) type {
+        return struct {
+            pub const WriteError = type;
+            pub const write = fn (
+                writer_ctx: Type,
+                bytes: []const u8,
+            ) anyerror!usize;
+        };
+    }
+
     pub fn write(
         writer_ctx: anytype,
         writer_impl: Impl(@TypeOf(writer_ctx), Writer),
@@ -423,6 +407,20 @@ pub const IO = struct {
         return writeAll(writer_ctx, writer_impl, mem.asBytes(&value));
     }
 
+    pub fn Seekable(comptime Type: type) type {
+        return struct {
+            pub const SeekError = type;
+
+            pub const seekTo = fn (Type, u64) anyerror!void;
+            pub const seekBy = fn (Type, i64) anyerror!void;
+
+            pub const GetSeekPosError = type;
+
+            pub const getPos = fn (Type) anyerror!u64;
+            pub const getEndPos = fn (Type) anyerror!u64;
+        };
+    }
+
     pub fn seekTo(
         seek_ctx: anytype,
         seek_impl: Impl(@TypeOf(seek_ctx), Seekable),
@@ -454,7 +452,7 @@ pub const IO = struct {
     }
 };
 
-// a stream that implements Reader, Writer, and Seekable
+// A stream that implements Reader, Writer, and Seekable
 const FixedBufferStream = struct {
     buffer: []u8,
     pos: usize,
