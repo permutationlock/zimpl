@@ -169,10 +169,7 @@ pub const IO = struct {
         reader_impl: Impl(@TypeOf(reader_ctx), Reader),
         buffer: []u8,
     ) reader_impl.ReadError!usize {
-        return @errorCast(reader_impl.read(
-            reader_ctx,
-            buffer,
-        ));
+        return @errorCast(reader_impl.read(reader_ctx, buffer));
     }
 
     pub inline fn readAll(
@@ -209,10 +206,7 @@ const FixedBufferReader = struct {
 
     pub fn read(self: *@This(), out_buffer: []u8) ReadError!usize {
         const len = @min(self.buffer[self.pos..].len, out_buffer.len);
-        @memcpy(
-            out_buffer[0..len],
-            self.buffer[self.pos..][0..len],
-        );
+        @memcpy(out_buffer[0..len], self.buffer[self.pos..][0..len]);
         self.pos += len;
         return len;
     }
@@ -228,14 +222,17 @@ test {
     try testing.expectEqualSlices(u8, in_buf[0..len], out_buf[0..len]);
 }
 ```
+
 The concrete `Reader` implementation type generated for
 `FixeBufferReader` in the example above is shown below.
-```
+
+```Zig
 Impl(*FixedBufferReader, Reader) = struct {
     ReadError: type = FixeBufferError.ReadError,
     read: fn (*FixedBufferReader, []u8) anyerror!void = FixedBufferError.read,
 };
 ```
+
 A more complete Zimpl implementation of the interfaces in
 `std.io` is available in [examples/io.zig][6].
 
@@ -263,7 +260,7 @@ fn Incrementable(comptime Type: type) type {
     };
 }
 
-// Accepting a pointer with an interface
+// Require a pointer type
 pub fn countToTen(
     ctr: anytype,
     impl: Impl(PtrChild(@TypeOf(ctr)), Incrementable)
@@ -273,21 +270,46 @@ pub fn countToTen(
     }
 }
 
-test {
-    const MyCounter = struct {
-        count: usize,
-
-        pub fn increment(self: *@This()) void {
-            self.count += 1;
+test "explicit implementation" {
+    const USize = struct {
+        pub fn inc(i: *usize) void {
+            i.* += 1;
         }
-     
-        pub fn read(self: *const @This()) usize {
-            return self.count;
+        pub fn deref(i: *const usize) usize {
+            return i.*;
         }
     };
+    var count: usize = 0;
+    countToTen(&count, .{ .increment = USize.inc, .read = USize.deref });
+    try testing.expectEqual(@as(usize, 10), count);
+}
+
+const MyCounter = struct {
+    count: usize,
+
+    pub fn increment(self: *@This()) void {
+        self.count += 1;
+    }
+
+    pub fn read(self: *const @This()) usize {
+        return self.count;
+    }
+};
+
+test "infer implementation" {
     var counter: MyCounter = .{ .count = 0 };
     countToTen(&counter, .{});
     try testing.expectEqual(@as(usize, 10), counter.count);
+}
+
+fn otherInc(self: *MyCounter) void {
+    self.count = 1 + self.count * 2;
+}
+
+test "override implementation" {
+    var counter: MyCounter = .{ .count = 0 };
+    countToTen(&counter, .{ .increment = otherInc });
+    try testing.expectEqual(@as(usize, 15), counter.count);
 }
 ```
 
