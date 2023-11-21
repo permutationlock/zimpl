@@ -3,12 +3,9 @@ const std = @import("std");
 pub const IfcFn = fn (comptime type) type;
 
 pub fn Impl(comptime Type: type, comptime Ifc: IfcFn) type {
-    const UWType = Unwrap(Type);
     const impl_decls = getNamespace(Ifc(Type));
     var fields: [impl_decls.len]std.builtin.Type.StructField = undefined;
-
-    var fld_index = 0;
-    for (impl_decls) |decl| {
+    for (&fields, impl_decls) |*fld, decl| {
         const fld_type = @field(Ifc(Type), decl.name);
         if (@TypeOf(fld_type) != type) {
             @compileError(std.fmt.comptimePrint(
@@ -16,38 +13,28 @@ pub fn Impl(comptime Type: type, comptime Ifc: IfcFn) type {
                 .{ Ifc(Type), decl.name, @TypeOf(fld_type) },
             ));
         }
-        const fld = &fields[fld_index];
         fld.*.name = decl.name;
         fld.*.alignment = 0; // defualt alignnment
         fld.*.is_comptime = false;
         fld.*.type = fld_type;
         fld.*.default_value = null;
         // infer default value from Unwrap(Type)
+        const UWType = Unwrap(Type);
         switch (@typeInfo(UWType)) {
-            inline else => |info| if (@hasField(
-                @TypeOf(info),
-                "decls",
-            )) {
+            inline else => |info| if (@hasField(@TypeOf(info), "decls")) {
                 if (@hasDecl(UWType, decl.name)) {
-                    if (@TypeOf(@field(
-                        UWType,
-                        decl.name,
-                    )) == fld.*.type) {
-                        fld.*.default_value = &@field(
-                            UWType,
-                            decl.name,
-                        );
+                    if (@TypeOf(@field(UWType, decl.name)) == fld.*.type) {
+                        fld.*.default_value = &@field(UWType, decl.name);
                     }
                 }
             },
         }
-        fld_index += 1;
     }
     return @Type(std.builtin.Type{
         .Struct = .{
             .layout = .Auto,
             .backing_integer = null,
-            .fields = fields[0..fld_index],
+            .fields = &fields,
             .decls = &[0]std.builtin.Type.Declaration{},
             .is_tuple = false,
         },
