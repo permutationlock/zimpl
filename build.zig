@@ -5,7 +5,8 @@ const Example = struct { name: []const u8, path: []const u8 };
 const paths = [_]Example{
     .{ .name = "count", .path = "examples/count.zig" },
     .{ .name = "iterator", .path = "examples/iterator.zig" },
-    .{ .name = "io", .path = "examples/io.zig" },
+    .{ .name = "zstd", .path = "examples/zstd.zig" },
+    .{ .name = "read_file", .path = "examples/read_file.zig" },
 };
 
 pub fn build(b: *Builder) !void {

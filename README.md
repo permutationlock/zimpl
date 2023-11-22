@@ -1,7 +1,7 @@
 # Zimpl Zig interfaces
 
 A dead simple implementation of [static dispatch][2] interfaces in Zig.
-This library is a simplified tiny subset of [ztrait][1].
+This library emerged from a tiny subset of [ztrait][1].
 
 ## What is the idea?
 
@@ -233,8 +233,7 @@ Impl(*FixedBufferReader, Reader) = struct {
 };
 ```
 
-A more complete Zimpl implementation of the interfaces in
-`std.io` is available in [examples/io.zig][6].
+For more Zimpl re-implementation `std` look at the [examples][6].
 
 ### `PtrChild`
 
@@ -333,7 +332,7 @@ underlying type. E.g. `Unwrap(!*?*u8) = u8`.
 [3]: https://github.com/permutationlock/zimpl/blob/main/examples/count.zig
 [4]: https://github.com/permutationlock/zimpl/blob/main/examples/iterator.zig
 [5]: https://musing.permutationlock.com/posts/blog-working_with_anytype.html
-[6]: https://github.com/permutationlock/zimpl/blob/main/examples/io.zig
+[6]: https://github.com/permutationlock/zimpl/blob/main/examples
 
 [^1]: Technically default values are inferred from `Unwrap(Type)`.
     But note that if `Type` has a namespace then `Unwrap(Type)=Type`.
