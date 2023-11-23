@@ -6,11 +6,7 @@ const io = @import("../io.zig");
 buffer: []const u8,
 pos: usize = 0,
 
-pub const ReadError = error{};
-pub const SeekError = error{};
-pub const GetSeekPosError = error{};
-
-pub fn read(self: *@This(), out_buffer: []u8) ReadError!usize {
+pub fn read(self: *@This(), out_buffer: []u8) error{}!usize {
     const len = @min(self.buffer[self.pos..].len, out_buffer.len);
     @memcpy(
         out_buffer[0..len],
@@ -20,13 +16,13 @@ pub fn read(self: *@This(), out_buffer: []u8) ReadError!usize {
     return len;
 }
 
-pub fn seekTo(self: *@This(), pos: u64) SeekError!void {
+pub fn seekTo(self: *@This(), pos: u64) error{}!void {
     if (std.math.cast(usize, pos)) |usize_pos| {
         self.pos = @min(self.buffer.len, usize_pos);
     }
 }
 
-pub fn seekBy(self: *@This(), amt: i64) SeekError!void {
+pub fn seekBy(self: *@This(), amt: i64) error{}!void {
     const negate = amt < 0;
     if (std.math.cast(usize, @abs(amt))) |abs_amt| {
         if (negate) {
@@ -41,11 +37,11 @@ pub fn seekBy(self: *@This(), amt: i64) SeekError!void {
     }
 }
 
-pub fn getPos(self: *@This()) GetSeekPosError!u64 {
+pub fn getPos(self: *@This()) error{}!u64 {
     return self.pos;
 }
 
-pub fn getEndPos(self: *@This()) GetSeekPosError!u64 {
+pub fn getEndPos(self: *@This()) error{}!u64 {
     return self.buffer.len;
 }
 

@@ -67,7 +67,7 @@ pub fn getWritten(self: *@This()) []u8 {
     return self.buffer[0..self.pos];
 }
 
-test "write, seek, and read" {
+test "write, seek 0, and read back" {
     const in_buf: []const u8 = "I really hope that this works!";
 
     var stream_buf: [in_buf.len]u8 = undefined;

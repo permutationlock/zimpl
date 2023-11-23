@@ -5,19 +5,19 @@ const zimpl = @import("zimpl");
 const Impl = zimpl.Impl;
 const PtrChild = zimpl.PtrChild;
 
-fn Incrementable(comptime Type: type) type {
+fn Counter(comptime Type: type) type {
     return struct {
-        pub const increment = fn (*Type) void;
-        pub const read = fn (*const Type) usize;
+        increment: fn (Type) void,
+        read: fn (Type) usize,
     };
 }
 
 pub fn countToTen(
-    ctr_ptr: anytype,
-    comptime ctr_impl: Impl(PtrChild(@TypeOf(ctr_ptr)), Incrementable),
+    ctr_ctx: anytype,
+    comptime ctr_impl: Impl(@TypeOf(ctr_ctx), Counter),
 ) void {
-    while (ctr_impl.read(ctr_ptr) < 10) {
-        ctr_impl.increment(ctr_ptr);
+    while (ctr_impl.read(ctr_ctx) < 10) {
+        ctr_impl.increment(ctr_ctx);
     }
 }
 

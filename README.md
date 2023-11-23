@@ -1,169 +1,45 @@
 # Zimpl Zig interfaces
 
-A dead simple implementation of [static dispatch][2] interfaces in Zig.
-This library emerged from a tiny subset of [ztrait][1].
+A dead simple implementation of [static dispatch][2] interfaces in Zig
+that emerged from a tiny subset of [ztrait][1]. See [here][3]
+for some motivation.
 
-## What is the idea?
-
-Suppose that we have a generic function to poll for
-events in a `Server` struct. The caller passes in a `handler` argument to
-provide event callbacks.
+The `zimpl` module is ~30 lines of code and exposes one public
+declaration: `Impl`.
 
 ```Zig
-const Server = struct {
-    // ...
-    pub fn poll(self: *@This(), handler: anytype) !void {
-        try self.pollSockets();
-        while (self.getEvent()) |evt| {
-            switch (evt) {
-                .open => |handle| handler.onOpen(handle),
-                .msg => |msg| handler.onMessage(msg.handle, msg.bytes),
-                .close => |handle| handler.onClose(handle),
-            }
-        }
-    }
-    // ...
-};
+pub fn Impl(comptime Type: type, comptime Ifc: fn (type) type) type { ... }
 ```
 
-A complaint with the above implementation is that it is not clear from the
-signature, or even the full definition, what the
-requirements are for the `handler` argument.
+## Arguments
 
-A guaranteed way to make requirements clear is to never rely on duck
-typing and have the caller pass in all of the handler callback functions
-directly.
+The function `Ifc` must always return a struct type.
 
-```Zig
-const Server = struct {
-    // ...
-    pub fn poll(
-        self: *@This(),
-        handler: anytype, 
-        comptime onOpen: fn (@TypeOf(handler), Handle) void,
-        comptime onMessage: fn (@TypeOf(handler), Handle, []const u8) void,
-        comptime onClose: fn (@TypeOf(handler), Handle) void
-    ) void {
-        try self.pollSockets();
-        while (self.getEvent()) |evt| {
-            switch (evt) {
-                .open => |handle| onOpen(handler, handle),
-                .msg => |msg| onMessage(handler, msg.handle, msg.bytes),
-                .close => |handle| onClose(handler, handle),
-            }
-        }
-    }
-    // ...
-};
-```
-```Zig
-// using the server library
-var server = Server{};
-var handler = MyHandler{};
-try server.listen(8080);
-while (true) {
-    try server.poll(
-        &handler,
-        MyHandler.onOpen,
-        MyHandler.onMessage,
-        MyHandler.onClose
-    );
-}
-```
+## Return value
 
-The drawback now is that the function signature is long and the call
-site is verbose. Additionally, if we ever want to use a `handler`
-parameter in another function then the callback parameters
-would need to be defined again separately.
+The return value `Impl(Type, Ifc)` is a struct type with the same fields
+as `Ifc(Type)`, but with the default value of each field set equal to
+the declaration of `Unwrap(Type)` of the same name, if such a declaration
+exists. The `Unwrap` function removes all layers of `*`, `?`, or `!`
+wrapping a type, e.g. `Unwrap(!?*u32)` is `u32`.
 
-The idea behind `zimpl` is to try and get the best of both worlds:
- - Library writers define interfaces and require an interface
-   implementation alongside each generic parameter.
- - Library consumers may infer interface implementations using the
-   default constructor.
+If `Type` has a declaration matching the name of a field from
+`Ifc(Type)` that cannot coerce to the type of the field, then a
+compile error will occur.
 
-```Zig
-const Server = struct {
-    // ...
-    pub fn Handler(comptime Type: type) type {
-        return struct {
-            pub const onOpen = fn (Type, Handle) void;
-            pub const onMessage = fn (Type, Handle, []const u8) void;
-            pub const onClose = fn (Type, Handle) void;
-        };
-    }
-
-    pub fn poll(
-        self: *Self,
-        handler_ctx: anytype,
-        handler_impl: Impl(@TypeOf(handler_ctx), Handler)
-    ) void {
-        try self.pollSockets();
-        while (self.getEvent()) |evt| {
-            switch (evt) {
-                .open => |handle| handler_impl.onOpen(handler_ctx, handle),
-                .msg => |msg| handler_impl.onMessage(handler_ctx, msg.handle, msg.bytes),
-                .close => |handle| handler_impl.onClose(handler_ctx, handle),
-            }
-        }
-    }
-    // ...
-};
-```
-```Zig
-// using the server library
-var server = Server{};
-var handler = MyHandler{};
-try server.listen(8080);
-while (true) {
-    // Impl(*MyHandler, Handler) can be default constructed because MyHandler
-    // has onOpen, onMessage, and onClose member functions of the correct types
-    try server.poll(&handler, .{});
-}
-```
-
-For a full discussion on the above example see [this article][5].
-
-## The Zimpl library
-
-The `zimpl` module is around 70 lines of code and exposes exactly three
-declarations: `Impl`, `PtrChild`, and `Unwrap`.
-
-### `Impl`
-
-```Zig
-pub fn Impl(comptime Type: type, comptime Ifc: fn (comptime type) type) type { ... }
-```
-
-#### Arguments
-
-For all types `T`, the type `Ifc(T)` must be a struct with only public
-declarations of type `type`.
-
-#### Return value
-
-The return value `Impl(Type, Ifc)` is a struct type containing one field
-for each type valued declaration of `Ifc(Type)`.
-The default value of each field is set to be the
-declaration
-of `Type` of the same name, if such a declaration exists[^1].
-
-If `Ifc(Type)` contains a declaration that isn't a type, then a compile
-error is produced.
-
-#### Example
+## Example
 
 ```Zig
 // An interface
 pub fn Reader(comptime Type: type) type {
     return struct {
-        pub const ReadError = type;
-        pub const read = fn (reader_ctx: Type, buffer: []u8) anyerror!usize;
+        ReadError: type = error{},
+        read: fn (reader_ctx: Type, buffer: []u8) anyerror!usize,
     };
 }
 
 // A collection of functions using the interface
-pub const IO = struct {
+pub const io = struct {
     pub inline fn read(
         reader_ctx: anytype,
         reader_impl: Impl(@TypeOf(reader_ctx), Reader),
@@ -200,11 +76,9 @@ pub const IO = struct {
 // A type satisfying the Reader interface
 const FixedBufferReader = struct {
     buffer: []const u8,
-    pos: usize,
+    pos: usize = 0,
 
-    pub const ReadError = error{};
-
-    pub fn read(self: *@This(), out_buffer: []u8) ReadError!usize {
+    pub fn read(self: *@This(), out_buffer: []u8) error{}!usize {
         const len = @min(self.buffer[self.pos..].len, out_buffer.len);
         @memcpy(out_buffer[0..len], self.buffer[self.pos..][0..len]);
         self.pos += len;
@@ -214,125 +88,18 @@ const FixedBufferReader = struct {
 
 test {
     const in_buf: []const u8 = "I really hope that this works!";
-    var reader = FixedBufferReader{ .buffer = in_buf, .pos = 0 };
+    var reader = FixedBufferReader{ .buffer = in_buf };
 
     var out_buf: [16]u8 = undefined;
-    const len = try IO.readAll(&reader, .{}, &out_buf);
+    const len = try io.readAll(&reader, .{}, &out_buf);
 
-    try testing.expectEqualSlices(u8, in_buf[0..len], out_buf[0..len]);
+    try testing.expectEqualStrings(in_buf[0..len], out_buf[0..len]);
 }
 ```
 
-The concrete `Reader` implementation type generated for
-`FixeBufferReader` in the example above is shown below.
-
-```Zig
-Impl(*FixedBufferReader, Reader) = struct {
-    ReadError: type = FixeBufferError.ReadError,
-    read: fn (*FixedBufferReader, []u8) anyerror!void = FixedBufferError.read,
-};
-```
-
-For more Zimpl re-implementation `std` look at the [examples][6].
-
-### `PtrChild`
-
-```Zig
-pub fn PtrChild(comptime Type: type) type { ... }
-```
-
-#### Arguments
-
-A compile error is thrown unless `Type` is a single item pointer.
-
-#### Return value
-
-Returns the child type of a single item pointer.
-
-#### Example
-
-```Zig
-fn Incrementable(comptime Type: type) type {
-    return struct {
-        pub const increment = fn (*Type) void;
-        pub const read = fn (*const Type) usize;
-    };
-}
-
-// Require a pointer type
-pub fn countToTen(
-    ctr: anytype,
-    impl: Impl(PtrChild(@TypeOf(ctr)), Incrementable)
-) void {
-    while (impl.read(ctr) < 10) {
-        impl.increment(ctr);
-    }
-}
-
-test "explicit implementation" {
-    const USize = struct {
-        pub fn inc(i: *usize) void {
-            i.* += 1;
-        }
-        pub fn deref(i: *const usize) usize {
-            return i.*;
-        }
-    };
-    var count: usize = 0;
-    countToTen(&count, .{ .increment = USize.inc, .read = USize.deref });
-    try testing.expectEqual(@as(usize, 10), count);
-}
-
-const MyCounter = struct {
-    count: usize,
-
-    pub fn increment(self: *@This()) void {
-        self.count += 1;
-    }
-
-    pub fn read(self: *const @This()) usize {
-        return self.count;
-    }
-};
-
-test "infer implementation" {
-    var counter: MyCounter = .{ .count = 0 };
-    countToTen(&counter, .{});
-    try testing.expectEqual(@as(usize, 10), counter.count);
-}
-
-fn otherInc(self: *MyCounter) void {
-    self.count = 1 + self.count * 2;
-}
-
-test "override implementation" {
-    var counter: MyCounter = .{ .count = 0 };
-    countToTen(&counter, .{ .increment = otherInc });
-    try testing.expectEqual(@as(usize, 15), counter.count);
-}
-```
-
-### `Unwrap`
-
-```Zig
-pub fn Unwrap(comptime Type: type) type { ... }
-```
-
-#### Arguments
-
-Works for any type.
-
-#### Return value
-
-Unwraps any number of layers of `*`, `?`, or `!` and returns the
-underlying type. E.g. `Unwrap(!*?*u8) = u8`.
+More in-depth [examples][4] are provided.
 
 [1]: https://github.com/permutationlock/ztrait
 [2]: https://en.wikipedia.org/wiki/Static_dispatch
-[3]: https://github.com/permutationlock/zimpl/blob/main/examples/count.zig
-[4]: https://github.com/permutationlock/zimpl/blob/main/examples/iterator.zig
-[5]: https://musing.permutationlock.com/posts/blog-working_with_anytype.html
-[6]: https://github.com/permutationlock/zimpl/blob/main/examples
-
-[^1]: Technically default values are inferred from `Unwrap(Type)`.
-    But note that if `Type` has a namespace then `Unwrap(Type)=Type`.
+[3]: https://github.com/permutationlock/zimpl/blob/main/why.md
+[4]: https://github.com/permutationlock/zimpl/blob/main/examples

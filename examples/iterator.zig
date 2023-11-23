@@ -8,7 +8,7 @@ fn Iterator(comptime Data: type) fn (type) type {
     return struct {
         pub fn Ifc(comptime Type: type) type {
             return struct {
-                pub const next = fn (*Type) ?*Data;
+                next: fn (*Type) ?*Data,
             };
         }
     }.Ifc;

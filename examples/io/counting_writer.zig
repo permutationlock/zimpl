@@ -30,3 +30,10 @@ pub fn countingWriter(
 ) CountingWriter(@TypeOf(child_ctx), child_impl) {
     return .{ .child_ctx = child_ctx };
 }
+
+test "count bytes written to null_writer" {
+    var writer = countingWriter(io.null_writer, .{});
+    try io.writeAll(&writer, .{}, "Hello!");
+    try io.writeAll(&writer, .{}, "Is anybody there?");
+    try std.testing.expectEqual(@as(usize, 23), writer.bytes_written);
+}

@@ -27,8 +27,8 @@ test "null_writer" {
 
 pub fn Reader(comptime Type: type) type {
     return struct {
-        pub const ReadError = type;
-        pub const read = fn (reader_ctx: Type, buffer: []u8) anyerror!usize;
+        ReadError: type = error{},
+        read: fn (reader_ctx: Type, buffer: []u8) anyerror!usize,
     };
 }
 
@@ -258,11 +258,8 @@ pub inline fn readEnum(
 
 pub fn Writer(comptime Type: type) type {
     return struct {
-        pub const WriteError = type;
-        pub const write = fn (
-            writer_ctx: Type,
-            bytes: []const u8,
-        ) anyerror!usize;
+        WriteError: type = error{},
+        write: fn (writer_ctx: Type, bytes: []const u8) anyerror!usize,
     };
 }
 
@@ -340,15 +337,15 @@ pub fn writeStruct(
 
 pub fn Seekable(comptime Type: type) type {
     return struct {
-        pub const SeekError = type;
+        SeekError: type = error{},
 
-        pub const seekTo = fn (Type, u64) anyerror!void;
-        pub const seekBy = fn (Type, i64) anyerror!void;
+        seekTo: fn (seek_ctx: Type, pos: u64) anyerror!void,
+        seekBy: fn (seek_ctx: Type, amt: i64) anyerror!void,
 
-        pub const GetSeekPosError = type;
+        GetSeekPosError: type = error{},
 
-        pub const getPos = fn (Type) anyerror!u64;
-        pub const getEndPos = fn (Type) anyerror!u64;
+        getPos: fn (seek_ctx: Type) anyerror!u64,
+        getEndPos: fn (seek_ctx: Type) anyerror!u64,
     };
 }
 
