@@ -76,10 +76,10 @@ while (true) {
 }
 ```
 
-A big drawback now is that the function signature is long and the call
-site is verbose. Additionally, if we ever want to use a `handler`
-parameter in another function then the callback parameters
-would need to be defined again separately.
+Unfortunately, now the function signature is long and the call
+site is verbose. Additionally, if we need to take a `handler`
+somewhere else, then the callback parameters
+will need to be defined again separately.
 
 The logical next step would be to create a struct type to hold all of
 the callback functions.
@@ -112,6 +112,11 @@ const Server = struct {
     // ...
 };
 ```
+
+This cleaned up the function signature, but calling `poll` is still
+needlessly verbose when the type already
+has valid callback member functions.
+
 ```Zig
 // using the server library
 var server = Server{};
@@ -126,11 +131,7 @@ while (true) {
 }
 ```
 
-Unfortunately, calling `poll` is
-still needlessly verbose when the type already has the corresponding
-callbacks as member functions.
-
-The Zimpl library provides the `Impl` function that will infer the default
+The Zimpl library provides the function `Impl` that infers the default
 value for each member of `Handler(Type)` from the declarations of `Type`.
 
 ```Zig

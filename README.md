@@ -73,7 +73,7 @@ pub const io = struct {
     }
 };
 
-// A type satisfying the Reader interface
+// A type satisfying the Reader interface (uses default ReadError)
 const FixedBufferReader = struct {
     buffer: []const u8,
     pos: usize = 0,
@@ -86,7 +86,7 @@ const FixedBufferReader = struct {
     }
 };
 
-test {
+test "use FixedBufferReader as a reader" {
     const in_buf: []const u8 = "I really hope that this works!";
     var reader = FixedBufferReader{ .buffer = in_buf };
 
@@ -94,6 +94,14 @@ test {
     const len = try io.readAll(&reader, .{}, &out_buf);
 
     try testing.expectEqualStrings(in_buf[0..len], out_buf[0..len]);
+}
+
+test "use std.File as a reader" {
+    var buffer: [19]u8 = undefined;
+    var file = try std.fs.cwd().openFile("my_file.txt", .{});
+    try io.readAll(file, .{}, &buffer);
+
+    try std.testing.expectEqualStrings("Hello, I am a file!", &buffer);
 }
 ```
 
