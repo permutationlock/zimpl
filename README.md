@@ -13,19 +13,17 @@ pub fn Impl(comptime T: type, comptime Ifc: fn (type) type) type { ... }
 
 ## Arguments
 
-The function `Ifc` must always return a struct type. 
-
-If `T` has a declaration matching the name of a field from
+The function `Ifc` must always return a struct type. If `Unwrap(T)`
+has a declaration matching the name of a field from
 `Ifc(T)` that cannot coerce to the type of the field, then a
-compile error will occur.
+compile error will occur[^1].
 
 ## Return value
 
 The type `Impl(T, Ifc)` is a struct type with the same fields
 as `Ifc(T)`, but with the default value of each field set equal to
 the declaration of `Unwrap(T)` of the same name, if such a declaration
-exists. The `Unwrap` function removes all layers of `*`, `?`, or `!`
-wrapping a type, e.g. `Unwrap(!?*u32)` is `u32`.
+exists[^1].
 
 ## Example
 
@@ -111,3 +109,16 @@ More in-depth [examples][4] are provided.
 [2]: https://en.wikipedia.org/wiki/Static_dispatch
 [3]: https://github.com/permutationlock/zimpl/blob/main/why.md
 [4]: https://github.com/permutationlock/zimpl/blob/main/examples
+
+[^1]:  The internal `Unwrap` function removes all layers of `*`, `?`, or `!`
+wrapping a type, e.g. `Unwrap(!?*u32)` is `u32`.
+```Zig
+fn Unwrap(comptime T: type) type {
+    return switch (@typeInfo(T)) {
+        .Pointer => |info| if (info.size == .One) Unwrap(info.child) else T,
+        .Optional => |info| Unwrap(info.child),
+        .ErrorUnion => |info| Unwrap(info.payload),
+        else => T,
+    };
+}
+```
