@@ -1,16 +1,16 @@
 const Type = @import("std").builtin.Type;
 
 pub fn Impl(comptime T: type, comptime Ifc: fn (type) type) type {
+    switch (@typeInfo(Unwrap(T))) {
+        .Struct, .Union, .Enum, .Opaque => {},
+        else => return Ifc(T),
+    }
     const ifc = @typeInfo(Ifc(T)).Struct.fields;
     var fields = @as(*const [ifc.len]Type.StructField, @ptrCast(ifc.ptr)).*;
     for (&fields) |*field| {
-        switch (@typeInfo(Unwrap(T))) {
-            inline else => |info| if (@hasField(@TypeOf(info), "decls")) {
-                if (@hasDecl(Unwrap(T), field.name)) {
-                    const decl = @field(Unwrap(T), field.name);
-                    field.*.default_value = &@as(field.type, decl);
-                }
-            },
+        if (@hasDecl(Unwrap(T), field.name)) {
+            const decl = @field(Unwrap(T), field.name);
+            field.*.default_value = &@as(field.type, decl);
         }
     }
     return @Type(Type{ .Struct = .{
