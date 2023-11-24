@@ -5,10 +5,10 @@ const zimpl = @import("zimpl");
 const Impl = zimpl.Impl;
 const PtrChild = zimpl.PtrChild;
 
-fn Counter(comptime Type: type) type {
+fn Counter(comptime T: type) type {
     return struct {
-        increment: fn (Type) void,
-        read: fn (Type) usize,
+        increment: fn (T) void,
+        read: fn (T) usize,
     };
 }
 

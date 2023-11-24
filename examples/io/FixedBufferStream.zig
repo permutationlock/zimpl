@@ -55,15 +55,15 @@ pub fn seekBy(self: *@This(), amt: i64) SeekError!void {
     }
 }
 
-pub fn getPos(self: *@This()) GetSeekPosError!u64 {
+pub fn getPos(self: *const @This()) GetSeekPosError!u64 {
     return self.pos;
 }
 
-pub fn getEndPos(self: *@This()) GetSeekPosError!u64 {
+pub fn getEndPos(self: *const @This()) GetSeekPosError!u64 {
     return self.buffer.len;
 }
 
-pub fn getWritten(self: *@This()) []u8 {
+pub fn getWritten(self: *const @This()) []u8 {
     return self.buffer[0..self.pos];
 }
 

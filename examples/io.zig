@@ -14,9 +14,7 @@ pub const countingWriter = @import("io/counting_writer.zig").countingWriter;
 pub const null_writer = NullWriter{};
 
 pub const NullWriter = struct {
-    pub const WriteError = error{};
-
-    pub fn write(_: NullWriter, data: []const u8) WriteError!usize {
+    pub fn write(_: NullWriter, data: []const u8) error{}!usize {
         return data.len;
     }
 };
@@ -25,10 +23,10 @@ test "null_writer" {
     writeAll(null_writer, .{}, "yay" ** 10) catch |err| switch (err) {};
 }
 
-pub fn Reader(comptime Type: type) type {
+pub fn Reader(comptime T: type) type {
     return struct {
         ReadError: type = error{},
-        read: fn (reader_ctx: Type, buffer: []u8) anyerror!usize,
+        read: fn (reader_ctx: T, buffer: []u8) anyerror!usize,
     };
 }
 
@@ -256,10 +254,10 @@ pub inline fn readEnum(
     return E.InvalidValue;
 }
 
-pub fn Writer(comptime Type: type) type {
+pub fn Writer(comptime T: type) type {
     return struct {
         WriteError: type = error{},
-        write: fn (writer_ctx: Type, bytes: []const u8) anyerror!usize,
+        write: fn (writer_ctx: T, bytes: []const u8) anyerror!usize,
     };
 }
 
@@ -335,17 +333,17 @@ pub fn writeStruct(
     return writeAll(writer_ctx, writer_impl, mem.asBytes(&value));
 }
 
-pub fn Seekable(comptime Type: type) type {
+pub fn Seekable(comptime T: type) type {
     return struct {
         SeekError: type = error{},
 
-        seekTo: fn (seek_ctx: Type, pos: u64) anyerror!void,
-        seekBy: fn (seek_ctx: Type, amt: i64) anyerror!void,
+        seekTo: fn (seek_ctx: T, pos: u64) anyerror!void,
+        seekBy: fn (seek_ctx: T, amt: i64) anyerror!void,
 
         GetSeekPosError: type = error{},
 
-        getPos: fn (seek_ctx: Type) anyerror!u64,
-        getEndPos: fn (seek_ctx: Type) anyerror!u64,
+        getPos: fn (seek_ctx: T) anyerror!u64,
+        getEndPos: fn (seek_ctx: T) anyerror!u64,
     };
 }
 

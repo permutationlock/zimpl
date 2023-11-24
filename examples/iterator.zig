@@ -6,9 +6,9 @@ const Impl = zimpl.Impl;
 
 fn Iterator(comptime Data: type) fn (type) type {
     return struct {
-        pub fn Ifc(comptime Type: type) type {
+        pub fn Ifc(comptime T: type) type {
             return struct {
-                next: fn (*Type) ?*Data,
+                next: fn (*T) ?*Data,
             };
         }
     }.Ifc;

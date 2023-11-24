@@ -1,36 +1,31 @@
-const std = @import("std");
+const Type = @import("std").builtin.Type;
 
-pub fn Impl(comptime Type: type, comptime Ifc: fn (type) type) type {
-    const ifc_fields = @typeInfo(Ifc(Type)).Struct.fields;
-    var fields: [ifc_fields.len]std.builtin.Type.StructField = undefined;
-    for (&fields, ifc_fields) |*fld, ifc_fld| {
-        fld.* = ifc_fld;
-        // infer default value from Unwrap(Type)
-        const UWType = Unwrap(Type);
-        switch (@typeInfo(UWType)) {
+pub fn Impl(comptime T: type, comptime Ifc: fn (type) type) type {
+    const ifc = @typeInfo(Ifc(T)).Struct.fields;
+    var fields = @as(*const [ifc.len]Type.StructField, @ptrCast(ifc.ptr)).*;
+    for (&fields) |*field| {
+        switch (@typeInfo(Unwrap(T))) {
             inline else => |info| if (@hasField(@TypeOf(info), "decls")) {
-                if (@hasDecl(UWType, ifc_fld.name)) {
-                    const decl = @field(UWType, ifc_fld.name);
-                    fld.*.default_value = &@as(ifc_fld.type, decl);
+                if (@hasDecl(Unwrap(T), field.name)) {
+                    const decl = @field(Unwrap(T), field.name);
+                    field.*.default_value = &@as(field.type, decl);
                 }
             },
         }
     }
-    return @Type(std.builtin.Type{
-        .Struct = .{
-            .layout = .Auto,
-            .fields = &fields,
-            .decls = &[0]std.builtin.Type.Declaration{},
-            .is_tuple = false,
-        },
-    });
+    return @Type(Type{ .Struct = .{
+        .layout = .Auto,
+        .fields = &fields,
+        .decls = &[0]Type.Declaration{},
+        .is_tuple = false,
+    } });
 }
 
-fn Unwrap(comptime Type: type) type {
-    return switch (@typeInfo(Type)) {
-        .Pointer => |info| if (info.size == .One) Unwrap(info.child) else Type,
+fn Unwrap(comptime T: type) type {
+    return switch (@typeInfo(T)) {
+        .Pointer => |info| if (info.size == .One) Unwrap(info.child) else T,
         .Optional => |info| Unwrap(info.child),
         .ErrorUnion => |info| Unwrap(info.payload),
-        else => Type,
+        else => T,
     };
 }

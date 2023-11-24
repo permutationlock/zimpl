@@ -87,11 +87,11 @@ the callback functions.
 ```Zig
 const Server = struct {
     // ...
-    pub fn Handler(comptime Type: type) type {
+    pub fn Handler(comptime T: type) type {
         return struct {
-            onOpen: fn (Type, Handle) void,
-            onMessage: fn (Type, Handle, []const u8) void,
-            onClose: fn (Type, Handle) void,
+            onOpen: fn (T, Handle) void,
+            onMessage: fn (T, Handle, []const u8) void,
+            onClose: fn (T, Handle) void,
         };
     }
 
@@ -132,7 +132,7 @@ while (true) {
 ```
 
 The Zimpl library provides the function `Impl` that infers the default
-value for each member of `Handler(Type)` from the declarations of `Type`.
+value for each member of `Handler(T)` from the declarations of `T`.
 
 ```Zig
 const Server = struct {

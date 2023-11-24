@@ -37,11 +37,11 @@ pub fn seekBy(self: *@This(), amt: i64) error{}!void {
     }
 }
 
-pub fn getPos(self: *@This()) error{}!u64 {
+pub fn getPos(self: *const @This()) error{}!u64 {
     return self.pos;
 }
 
-pub fn getEndPos(self: *@This()) error{}!u64 {
+pub fn getEndPos(self: *const @This()) error{}!u64 {
     return self.buffer.len;
 }
 

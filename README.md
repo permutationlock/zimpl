@@ -8,33 +8,33 @@ The `zimpl` module is ~30 lines of code and exposes one public
 declaration: `Impl`.
 
 ```Zig
-pub fn Impl(comptime Type: type, comptime Ifc: fn (type) type) type { ... }
+pub fn Impl(comptime T: type, comptime Ifc: fn (type) type) type { ... }
 ```
 
 ## Arguments
 
-The function `Ifc` must always return a struct type.
+The function `Ifc` must always return a struct type. 
+
+If `T` has a declaration matching the name of a field from
+`Ifc(T)` that cannot coerce to the type of the field, then a
+compile error will occur.
 
 ## Return value
 
-The return value `Impl(Type, Ifc)` is a struct type with the same fields
-as `Ifc(Type)`, but with the default value of each field set equal to
-the declaration of `Unwrap(Type)` of the same name, if such a declaration
+The type `Impl(T, Ifc)` is a struct type with the same fields
+as `Ifc(T)`, but with the default value of each field set equal to
+the declaration of `Unwrap(T)` of the same name, if such a declaration
 exists. The `Unwrap` function removes all layers of `*`, `?`, or `!`
 wrapping a type, e.g. `Unwrap(!?*u32)` is `u32`.
-
-If `Type` has a declaration matching the name of a field from
-`Ifc(Type)` that cannot coerce to the type of the field, then a
-compile error will occur.
 
 ## Example
 
 ```Zig
 // An interface
-pub fn Reader(comptime Type: type) type {
+pub fn Reader(comptime T: type) type {
     return struct {
         ReadError: type = error{},
-        read: fn (reader_ctx: Type, buffer: []u8) anyerror!usize,
+        read: fn (reader_ctx: T, buffer: []u8) anyerror!usize,
     };
 }
 
