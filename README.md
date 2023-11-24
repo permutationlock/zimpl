@@ -112,13 +112,3 @@ More in-depth [examples][4] are provided.
 
 [^1]:  The internal `Unwrap` function removes all layers of `*`, `?`, or `!`
 wrapping a type, e.g. `Unwrap(!?*u32)` is `u32`.
-```Zig
-fn Unwrap(comptime T: type) type {
-    return switch (@typeInfo(T)) {
-        .Pointer => |info| if (info.size == .One) Unwrap(info.child) else T,
-        .Optional => |info| Unwrap(info.child),
-        .ErrorUnion => |info| Unwrap(info.payload),
-        else => T,
-    };
-}
-```
