@@ -7,7 +7,6 @@ const paths = [_]Example{
     .{ .name = "iterator", .path = "examples/iterator.zig" },
     .{ .name = "io", .path = "examples/io.zig" },
     .{ .name = "read_file", .path = "examples/read_file.zig" },
-    //    .{ .name = "pointer_cast", .path = "examples/pointer_cast.zig" },
 };
 
 pub fn build(b: *Builder) !void {
