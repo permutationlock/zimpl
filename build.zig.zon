@@ -1,5 +1,5 @@
 .{
     .name = "zimpl",
-    .version = "0.0.0",
-    .paths = .{""},
+    .version = "1.0.0",
+    .paths = .{ "build.zig", "src/zimpl.zig" },
 }
