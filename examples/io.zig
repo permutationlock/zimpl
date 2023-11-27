@@ -3,8 +3,7 @@ const native_endian = @import("builtin").target.cpu.arch.endian();
 const mem = std.mem;
 const assert = std.debug.assert;
 
-const zimpl = @import("zimpl");
-const Impl = zimpl.Impl;
+const Unwrap = @import("zimpl").Unwrap;
 
 pub const FixedBufferReader = @import("io/FixedBufferReader.zig");
 pub const FixedBufferStream = @import("io/FixedBufferStream.zig");
@@ -14,7 +13,8 @@ pub const countingWriter = @import("io/counting_writer.zig").countingWriter;
 pub const null_writer = NullWriter{};
 
 pub const NullWriter = struct {
-    pub fn write(_: NullWriter, data: []const u8) error{}!usize {
+    pub const WriteError = error{};
+    pub fn write(_: NullWriter, data: []const u8) WriteError!usize {
         return data.len;
     }
 };
@@ -25,14 +25,14 @@ test "null_writer" {
 
 pub fn Reader(comptime T: type) type {
     return struct {
-        ReadError: type = error{},
-        read: fn (reader_ctx: T, buffer: []u8) anyerror!usize,
+        ReadError: type = Unwrap(T).ReadError,
+        read: fn (reader_ctx: T, buffer: []u8) anyerror!usize = Unwrap(T).read,
     };
 }
 
 pub inline fn read(
     reader_ctx: anytype,
-    reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+    reader_impl: Reader(@TypeOf(reader_ctx)),
     buffer: []u8,
 ) reader_impl.ReadError!usize {
     return @errorCast(reader_impl.read(reader_ctx, buffer));
@@ -40,7 +40,7 @@ pub inline fn read(
 
 pub inline fn readAll(
     reader_ctx: anytype,
-    reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+    reader_impl: Reader(@TypeOf(reader_ctx)),
     buffer: []u8,
 ) reader_impl.ReadError!usize {
     return readAtLeast(reader_ctx, reader_impl, buffer, buffer.len);
@@ -48,7 +48,7 @@ pub inline fn readAll(
 
 pub inline fn readAtLeast(
     reader_ctx: anytype,
-    reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+    reader_impl: Reader(@TypeOf(reader_ctx)),
     buffer: []u8,
     len: usize,
 ) reader_impl.ReadError!usize {
@@ -64,7 +64,7 @@ pub inline fn readAtLeast(
 
 pub inline fn readNoEof(
     reader_ctx: anytype,
-    reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+    reader_impl: Reader(@TypeOf(reader_ctx)),
     buf: []u8,
 ) (reader_impl.ReadError || error{EndOfStream})!void {
     const amt_read = try readAll(reader_ctx, reader_impl, buf);
@@ -73,9 +73,9 @@ pub inline fn readNoEof(
 
 pub inline fn streamUntilDelimiter(
     reader_ctx: anytype,
-    reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+    reader_impl: Reader(@TypeOf(reader_ctx)),
     writer_ctx: anytype,
-    writer_impl: Impl(@TypeOf(writer_ctx), Writer),
+    writer_impl: Writer(@TypeOf(writer_ctx)),
     delimiter: u8,
     optional_max_size: ?usize,
 ) (reader_impl.ReadError || writer_impl.WriteError || error{
@@ -102,7 +102,7 @@ pub inline fn streamUntilDelimiter(
 
 pub inline fn skipUntilDelimiterOrEof(
     reader_ctx: anytype,
-    reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+    reader_impl: Reader(@TypeOf(reader_ctx)),
     delimiter: u8,
 ) reader_impl.ReadError!void {
     while (true) {
@@ -116,7 +116,7 @@ pub inline fn skipUntilDelimiterOrEof(
 
 pub inline fn readByte(
     reader_ctx: anytype,
-    reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+    reader_impl: Reader(@TypeOf(reader_ctx)),
 ) (reader_impl.ReadError || error{EndOfStream})!u8 {
     var result: [1]u8 = undefined;
     const amt_read = try read(reader_ctx, reader_impl, result[0..]);
@@ -126,14 +126,14 @@ pub inline fn readByte(
 
 pub inline fn readByteSigned(
     reader_ctx: anytype,
-    reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+    reader_impl: Reader(@TypeOf(reader_ctx)),
 ) (reader_impl.ReadError || error{EndOfStream})!i8 {
     return @as(i8, @bitCast(try readByte(reader_ctx, reader_impl)));
 }
 
 pub inline fn readBytesNoEof(
     reader_ctx: anytype,
-    reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+    reader_impl: Reader(@TypeOf(reader_ctx)),
     comptime num_bytes: usize,
 ) (reader_impl.ReadError || error{EndOfStream})![num_bytes]u8 {
     var bytes: [num_bytes]u8 = undefined;
@@ -143,7 +143,7 @@ pub inline fn readBytesNoEof(
 
 pub inline fn readInt(
     reader_ctx: anytype,
-    reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+    reader_impl: Reader(@TypeOf(reader_ctx)),
     comptime T: type,
     endian: std.builtin.Endian,
 ) (reader_impl.ReadError || error{EndOfStream})!T {
@@ -157,7 +157,7 @@ pub inline fn readInt(
 
 pub inline fn readVarInt(
     reader_ctx: anytype,
-    reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+    reader_impl: Reader(@TypeOf(reader_ctx)),
     comptime ReturnType: type,
     endian: std.builtin.Endian,
     size: usize,
@@ -171,7 +171,7 @@ pub inline fn readVarInt(
 
 pub inline fn skipBytes(
     reader_ctx: anytype,
-    reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+    reader_impl: Reader(@TypeOf(reader_ctx)),
     num_bytes: u64,
     comptime options: struct {
         buf_size: usize = 512,
@@ -189,7 +189,7 @@ pub inline fn skipBytes(
 
 pub inline fn isBytes(
     reader_ctx: anytype,
-    reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+    reader_impl: Reader(@TypeOf(reader_ctx)),
     slice: []const u8,
 ) (reader_impl.ReadError || error{EndOfStream})!bool {
     var i: usize = 0;
@@ -204,7 +204,7 @@ pub inline fn isBytes(
 
 pub inline fn readStruct(
     reader_ctx: anytype,
-    reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+    reader_impl: Reader(@TypeOf(reader_ctx)),
     comptime T: type,
 ) (reader_impl.ReadError || error{EndOfStream})!T {
     // Only extern and packed structs have defined in-memory layout.
@@ -216,7 +216,7 @@ pub inline fn readStruct(
 
 pub inline fn readStructBig(
     reader_ctx: anytype,
-    reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+    reader_impl: Reader(@TypeOf(reader_ctx)),
     comptime T: type,
 ) (reader_impl.ReadError || error{EndOfStream})!T {
     var res = try readStruct(reader_ctx, reader_impl, T);
@@ -228,7 +228,7 @@ pub inline fn readStructBig(
 
 pub inline fn readEnum(
     reader_ctx: anytype,
-    reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+    reader_impl: Reader(@TypeOf(reader_ctx)),
     comptime Enum: type,
     endian: std.builtin.Endian,
 ) (reader_impl.ReadError || error{ EndOfStream, InvalidValue })!Enum {
@@ -256,14 +256,17 @@ pub inline fn readEnum(
 
 pub fn Writer(comptime T: type) type {
     return struct {
-        WriteError: type = error{},
-        write: fn (writer_ctx: T, bytes: []const u8) anyerror!usize,
+        WriteError: type = Unwrap(T).WriteError,
+        write: fn (
+            writer_ctx: T,
+            bytes: []const u8,
+        ) anyerror!usize = Unwrap(T).write,
     };
 }
 
 pub fn write(
     writer_ctx: anytype,
-    writer_impl: Impl(@TypeOf(writer_ctx), Writer),
+    writer_impl: Writer(@TypeOf(writer_ctx)),
     bytes: []const u8,
 ) writer_impl.WriteError!usize {
     return @errorCast(writer_impl.write(writer_ctx, bytes));
@@ -271,7 +274,7 @@ pub fn write(
 
 pub fn writeAll(
     writer_ctx: anytype,
-    writer_impl: Impl(@TypeOf(writer_ctx), Writer),
+    writer_impl: Writer(@TypeOf(writer_ctx)),
     bytes: []const u8,
 ) writer_impl.WriteError!void {
     var index: usize = 0;
@@ -282,7 +285,7 @@ pub fn writeAll(
 
 pub fn writeByte(
     writer_ctx: anytype,
-    writer_impl: Impl(@TypeOf(writer_ctx), Writer),
+    writer_impl: Writer(@TypeOf(writer_ctx)),
     byte: u8,
 ) writer_impl.WriteError!void {
     const array = [1]u8{byte};
@@ -291,7 +294,7 @@ pub fn writeByte(
 
 pub fn writeByteNTimes(
     writer_ctx: anytype,
-    writer_impl: Impl(@TypeOf(writer_ctx), Writer),
+    writer_impl: Writer(@TypeOf(writer_ctx)),
     byte: u8,
     n: usize,
 ) writer_impl.WriteError!void {
@@ -308,7 +311,7 @@ pub fn writeByteNTimes(
 
 pub inline fn writeInt(
     writer_ctx: anytype,
-    writer_impl: Impl(@TypeOf(writer_ctx), Writer),
+    writer_impl: Writer(@TypeOf(writer_ctx)),
     comptime T: type,
     value: T,
     endian: std.builtin.Endian,
@@ -325,7 +328,7 @@ pub inline fn writeInt(
 
 pub fn writeStruct(
     writer_ctx: anytype,
-    writer_impl: Impl(@TypeOf(writer_ctx), Writer),
+    writer_impl: Writer(@TypeOf(writer_ctx)),
     value: anytype,
 ) writer_impl.WriteError!void {
     // Only extern and packed structs have defined in-memory layout.
@@ -335,21 +338,21 @@ pub fn writeStruct(
 
 pub fn Seekable(comptime T: type) type {
     return struct {
-        SeekError: type = error{},
+        SeekError: type = Unwrap(T).SeekError,
 
-        seekTo: fn (seek_ctx: T, pos: u64) anyerror!void,
-        seekBy: fn (seek_ctx: T, amt: i64) anyerror!void,
+        seekTo: fn (seek_ctx: T, pos: u64) anyerror!void = Unwrap(T).seekTo,
+        seekBy: fn (seek_ctx: T, amt: i64) anyerror!void = Unwrap(T).seekBy,
 
-        GetSeekPosError: type = error{},
+        GetSeekPosError: type = Unwrap(T).GetSeekPosError,
 
-        getPos: fn (seek_ctx: T) anyerror!u64,
-        getEndPos: fn (seek_ctx: T) anyerror!u64,
+        getPos: fn (seek_ctx: T) anyerror!u64 = Unwrap(T).getPos,
+        getEndPos: fn (seek_ctx: T) anyerror!u64 = Unwrap(T).getEndPos,
     };
 }
 
 pub fn seekTo(
     seek_ctx: anytype,
-    seek_impl: Impl(@TypeOf(seek_ctx), Seekable),
+    seek_impl: Seekable(@TypeOf(seek_ctx)),
     pos: u64,
 ) seek_impl.SeekError!void {
     return @errorCast(seek_impl.seekTo(seek_ctx, pos));
@@ -357,7 +360,7 @@ pub fn seekTo(
 
 pub fn seekBy(
     seek_ctx: anytype,
-    seek_impl: Impl(@TypeOf(seek_ctx), Seekable),
+    seek_impl: Seekable(@TypeOf(seek_ctx)),
     amt: i64,
 ) seek_impl.SeekError!void {
     return @errorCast(seek_impl.seekBy(seek_ctx, amt));
@@ -365,14 +368,14 @@ pub fn seekBy(
 
 pub fn getPos(
     seek_ctx: anytype,
-    seek_impl: Impl(@TypeOf(seek_ctx), Seekable),
+    seek_impl: Seekable(@TypeOf(seek_ctx)),
 ) seek_impl.GetSeekPosError!u64 {
     return @errorCast(seek_impl.getPos(seek_ctx));
 }
 
 pub fn getEndPos(
     seek_ctx: anytype,
-    seek_impl: Impl(@TypeOf(seek_ctx), Seekable),
+    seek_impl: Seekable(@TypeOf(seek_ctx)),
 ) seek_impl.GetSeekPosError!u64 {
     return @errorCast(seek_impl.getEndPos(seek_ctx));
 }

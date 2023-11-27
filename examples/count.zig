@@ -1,38 +1,22 @@
 const std = @import("std");
 const testing = std.testing;
 
-const zimpl = @import("zimpl");
-const Impl = zimpl.Impl;
-const PtrChild = zimpl.PtrChild;
+const Unwrap = @import("zimpl").Unwrap;
 
 fn Counter(comptime T: type) type {
     return struct {
-        increment: fn (T) void,
-        read: fn (T) usize,
+        increment: fn (T) void = Unwrap(T).increment,
+        read: fn (T) usize = Unwrap(T).read,
     };
 }
 
 pub fn countToTen(
     ctr_ctx: anytype,
-    comptime ctr_impl: Impl(@TypeOf(ctr_ctx), Counter),
+    comptime ctr_impl: Counter(@TypeOf(ctr_ctx)),
 ) void {
     while (ctr_impl.read(ctr_ctx) < 10) {
         ctr_impl.increment(ctr_ctx);
     }
-}
-
-test "explicit implementation" {
-    const USize = struct {
-        pub fn inc(i: *usize) void {
-            i.* += 1;
-        }
-        pub fn deref(i: *const usize) usize {
-            return i.*;
-        }
-    };
-    var count: usize = 0;
-    countToTen(&count, .{ .increment = USize.inc, .read = USize.deref });
-    try testing.expectEqual(@as(usize, 10), count);
 }
 
 const MyCounter = struct {

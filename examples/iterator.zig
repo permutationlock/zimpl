@@ -1,14 +1,13 @@
 const std = @import("std");
 const testing = std.testing;
 
-const zimpl = @import("zimpl");
-const Impl = zimpl.Impl;
+const Unwrap = @import("zimpl").Unwrap;
 
 fn Iterator(comptime Data: type) fn (type) type {
     return struct {
         pub fn Ifc(comptime T: type) type {
             return struct {
-                next: fn (*T) ?*Data,
+                next: fn (*T) ?*Data = Unwrap(T).next,
             };
         }
     }.Ifc;
@@ -18,7 +17,7 @@ pub fn apply(
     comptime T: type,
     comptime f: fn (*T) void,
     iter: anytype,
-    impl: Impl(@TypeOf(iter), Iterator(T)),
+    impl: Iterator(T)(@TypeOf(iter)),
 ) void {
     var mut_iter = iter;
     while (impl.next(&mut_iter)) |t| {
