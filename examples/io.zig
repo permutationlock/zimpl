@@ -155,6 +155,21 @@ pub inline fn readInt(
     return mem.readInt(T, &bytes, endian);
 }
 
+pub inline fn readFloat(
+    reader_ctx: anytype,
+    reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+    comptime T: type,
+) (reader_impl.ReadError || error{EndOfStream})!T {
+    const IntT = switch (T) {
+        .f16 => u16,
+        .f32 => u32,
+        .f64 => u64,
+        .f128 => u128,
+        else => @compileError("non standard float"),
+    };
+    return @floatFromInt(readInt(reader_ctx, reader_impl, IntT, .little));
+}
+
 pub inline fn readVarInt(
     reader_ctx: anytype,
     reader_impl: Impl(@TypeOf(reader_ctx), Reader),
@@ -321,6 +336,28 @@ pub inline fn writeInt(
         endian,
     );
     return writeAll(writer_ctx, writer_impl, &bytes);
+}
+
+pub inline fn writeFloat(
+    writer_ctx: anytype,
+    writer_impl: Impl(@TypeOf(writer_ctx), Writer),
+    comptime T: type,
+    value: T,
+) writer_impl.WriteError!void {
+    const IntT = switch (T) {
+        .f16 => u16,
+        .f32 => u32,
+        .f64 => u64,
+        .f128 => u128,
+        else => @compileError("non standard float"),
+    };
+    return writeInt(
+        writer_ctx,
+        writer_impl,
+        IntT,
+        @intFromFloat(value),
+        .little,
+    );
 }
 
 pub fn writeStruct(
