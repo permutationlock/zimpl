@@ -1,14 +1,13 @@
 const std = @import("std");
 const testing = std.testing;
 
-const zimpl = @import("zimpl");
-const Impl = zimpl.Impl;
+const Impl = @import("zimpl").Impl;
 
 const io = @import("../io.zig");
 
 pub fn CountingWriter(
     comptime ChildCtx: type,
-    comptime child_impl: Impl(ChildCtx, io.Writer),
+    comptime child_impl: Impl(io.Writer, ChildCtx),
 ) type {
     return struct {
         child_ctx: ChildCtx,
@@ -26,7 +25,7 @@ pub fn CountingWriter(
 
 pub fn countingWriter(
     child_ctx: anytype,
-    child_impl: Impl(@TypeOf(child_ctx), io.Writer),
+    child_impl: Impl(io.Writer, @TypeOf(child_ctx)),
 ) CountingWriter(@TypeOf(child_ctx), child_impl) {
     return .{ .child_ctx = child_ctx };
 }

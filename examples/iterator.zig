@@ -1,8 +1,7 @@
 const std = @import("std");
 const testing = std.testing;
 
-const zimpl = @import("zimpl");
-const Impl = zimpl.Impl;
+const Impl = @import("zimpl").Impl;
 
 fn Iterator(comptime Data: type) fn (type) type {
     return struct {
@@ -18,7 +17,7 @@ pub fn apply(
     comptime T: type,
     comptime f: fn (*T) void,
     iter: anytype,
-    impl: Impl(@TypeOf(iter), Iterator(T)),
+    impl: Impl(Iterator(T), @TypeOf(iter)),
 ) void {
     var mut_iter = iter;
     while (impl.next(&mut_iter)) |t| {

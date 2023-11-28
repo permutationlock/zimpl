@@ -1,9 +1,7 @@
 const std = @import("std");
 const testing = std.testing;
 
-const zimpl = @import("zimpl");
-const Impl = zimpl.Impl;
-const PtrChild = zimpl.PtrChild;
+const Impl = @import("zimpl").Impl;
 
 fn Counter(comptime T: type) type {
     return struct {
@@ -14,7 +12,7 @@ fn Counter(comptime T: type) type {
 
 pub fn countToTen(
     ctr_ctx: anytype,
-    comptime ctr_impl: Impl(@TypeOf(ctr_ctx), Counter),
+    ctr_impl: Impl(Counter, @TypeOf(ctr_ctx)),
 ) void {
     while (ctr_impl.read(ctr_ctx) < 10) {
         ctr_impl.increment(ctr_ctx);

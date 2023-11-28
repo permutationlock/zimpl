@@ -140,7 +140,7 @@ const Server = struct {
     pub fn poll(
         self: *Self,
         handler_ctx: anytype,
-        handler_impl: Impl(@TypeOf(handler_ctx), Handler)
+        handler_impl: Impl(Handler, @TypeOf(handler_ctx))
     ) void {
         try self.pollSockets();
         while (self.getEvent()) |evt| {
@@ -159,7 +159,7 @@ var server = Server{};
 var handler = MyHandler{};
 try server.listen(8080);
 while (true) {
-    // Impl(*MyHandler, Handler) can be default constructed because MyHandler
+    // Impl(Handler, *MyHandler) can be default constructed because MyHandler
     // has onOpen, onMessage, and onClose member functions
     try server.poll(&handler, .{});
 }

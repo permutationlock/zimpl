@@ -1,6 +1,6 @@
 const Type = @import("std").builtin.Type;
 
-pub fn Impl(comptime T: type, comptime Ifc: fn (type) type) type {
+pub fn Impl(comptime Ifc: fn (type) type, comptime T: type) type {
     switch (@typeInfo(Unwrap(T))) {
         .Struct, .Union, .Enum, .Opaque => {},
         else => return Ifc(T),

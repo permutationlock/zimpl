@@ -8,7 +8,7 @@ The `zimpl` module is ~30 lines of code and exposes one public
 declaration: `Impl`.
 
 ```Zig
-pub fn Impl(comptime T: type, comptime Ifc: fn (type) type) type { ... }
+pub fn Impl(comptime Ifc: fn (type) type, comptime T: type) type { ... }
 ```
 
 ## Arguments
@@ -25,7 +25,7 @@ wrapping a type, e.g. `Unwrap(!?*u32)` is `u32`.
 
 ## Return value
 
-The type `Impl(T, Ifc)` is a struct type with the same fields
+The type `Impl(Ifc, T)` is a struct type with the same fields
 as `Ifc(T)`, but with the default value of each field set equal to
 the declaration of `Unwrap(T)` of the same name, if such a declaration
 exists.
@@ -45,7 +45,7 @@ pub fn Reader(comptime T: type) type {
 pub const io = struct {
     pub inline fn read(
         reader_ctx: anytype,
-        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(Reader, @TypeOf(reader_ctx)),
         buffer: []u8,
     ) reader_impl.ReadError!usize {
         return @errorCast(reader_impl.read(reader_ctx, buffer));
@@ -53,7 +53,7 @@ pub const io = struct {
 
     pub inline fn readAll(
         reader_ctx: anytype,
-        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(Reader, @TypeOf(reader_ctx)),
         buffer: []u8,
     ) reader_impl.ReadError!usize {
         return readAtLeast(reader_ctx, reader_impl, buffer, buffer.len);
@@ -61,7 +61,7 @@ pub const io = struct {
 
     pub inline fn readAtLeast(
         reader_ctx: anytype,
-        reader_impl: Impl(@TypeOf(reader_ctx), Reader),
+        reader_impl: Impl(Reader, @TypeOf(reader_ctx)),
         buffer: []u8,
         len: usize,
     ) reader_impl.ReadError!usize {

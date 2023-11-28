@@ -20,7 +20,7 @@ test "read file with std.os.fd_t" {
         std.os.O.RDONLY,
         0,
     );
-    const fd_reader: Impl(std.os.fd_t, io.Reader) = .{
+    const fd_reader: Impl(io.Reader, std.os.fd_t) = .{
         .read = std.os.read,
         .ReadError = std.os.ReadError,
     };
