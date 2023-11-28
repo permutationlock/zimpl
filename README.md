@@ -76,20 +76,18 @@ pub const io = struct {
     }
 };
 
-// A type satisfying the Reader interface (uses default ReadError)
-const FixedBufferReader = struct {
-    buffer: []const u8,
-    pos: usize = 0,
-
-    pub fn read(self: *@This(), out_buffer: []u8) error{}!usize {
-        const len = @min(self.buffer[self.pos..].len, out_buffer.len);
-        @memcpy(out_buffer[0..len], self.buffer[self.pos..][0..len]);
-        self.pos += len;
-        return len;
-    }
-};
-
 test "use FixedBufferReader as a reader" {
+    const FixedBufferReader = struct {
+        buffer: []const u8,
+        pos: usize = 0,
+
+        pub fn read(self: *@This(), out_buffer: []u8) error{}!usize {
+            const len = @min(self.buffer[self.pos..].len, out_buffer.len);
+            @memcpy(out_buffer[0..len], self.buffer[self.pos..][0..len]);
+            self.pos += len;
+            return len;
+        }
+    };
     const in_buf: []const u8 = "I really hope that this works!";
     var reader = FixedBufferReader{ .buffer = in_buf };
 
@@ -103,6 +101,18 @@ test "use std.File as a reader" {
     var buffer: [19]u8 = undefined;
     var file = try std.fs.cwd().openFile("my_file.txt", .{});
     try io.readAll(file, .{}, &buffer);
+
+    try std.testing.expectEqualStrings("Hello, I am a file!", &buffer);
+}
+
+test "use std.os.fd_t as a reader with an explicit interface" {
+    var buffer: [19]u8 = undefined;
+    var file = try std.os.open("my_file.txt", std.os.O.RDONLY, 0);
+    try io.readAll(
+        file,
+        .{ .read = std.os.read, .ReadError = std.os.ReadError, },
+        &buffer,
+    );
 
     try std.testing.expectEqualStrings("Hello, I am a file!", &buffer);
 }
