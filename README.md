@@ -76,7 +76,7 @@ pub const io = struct {
     }
 };
 
-test "use FixedBufferReader as a reader" {
+test "define and use a reader" {
     const FixedBufferReader = struct {
         buffer: []const u8,
         pos: usize = 0,
@@ -97,7 +97,7 @@ test "use FixedBufferReader as a reader" {
     try testing.expectEqualStrings(in_buf[0..len], out_buf[0..len]);
 }
 
-test "use std.File as a reader" {
+test "use std.fs.File as a reader" {
     var buffer: [19]u8 = undefined;
     var file = try std.fs.cwd().openFile("my_file.txt", .{});
     try io.readAll(file, .{}, &buffer);
@@ -105,11 +105,11 @@ test "use std.File as a reader" {
     try std.testing.expectEqualStrings("Hello, I am a file!", &buffer);
 }
 
-test "use std.os.fd_t as a reader with an explicit interface" {
+test "use std.os.fd_t as a reader via an explicitly defined interface" {
     var buffer: [19]u8 = undefined;
-    var file = try std.os.open("my_file.txt", std.os.O.RDONLY, 0);
+    const fd = try std.os.open("my_file.txt", std.os.O.RDONLY, 0);
     try io.readAll(
-        file,
+        fd,
         .{ .read = std.os.read, .ReadError = std.os.ReadError, },
         &buffer,
     );
