@@ -36,7 +36,7 @@ exists.
 // An interface
 pub fn Reader(comptime T: type) type {
     return struct {
-        ReadError: type = error{},
+        ReadError: type = anyerror,
         read: fn (reader_ctx: T, buffer: []u8) anyerror!usize,
     };
 }
@@ -81,7 +81,9 @@ test "define and use a reader" {
         buffer: []const u8,
         pos: usize = 0,
 
-        pub fn read(self: *@This(), out_buffer: []u8) error{}!usize {
+        pub const ReadError = error{};
+
+        pub fn read(self: *@This(), out_buffer: []u8) ReadError!usize {
             const len = @min(self.buffer[self.pos..].len, out_buffer.len);
             @memcpy(out_buffer[0..len], self.buffer[self.pos..][0..len]);
             self.pos += len;

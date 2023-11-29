@@ -13,7 +13,8 @@ pub const countingWriter = @import("io/counting_writer.zig").countingWriter;
 pub const null_writer = NullWriter{};
 
 pub const NullWriter = struct {
-    pub fn write(_: NullWriter, data: []const u8) error{}!usize {
+    pub const WriteError = error{};
+    pub fn write(_: NullWriter, data: []const u8) WriteError!usize {
         return data.len;
     }
 };
@@ -24,7 +25,7 @@ test "null_writer" {
 
 pub fn Reader(comptime T: type) type {
     return struct {
-        ReadError: type = error{},
+        ReadError: type = anyerror,
         read: fn (reader_ctx: T, buffer: []u8) anyerror!usize,
     };
 }
@@ -94,8 +95,6 @@ pub inline fn streamUntilDelimiter(
             if (byte == delimiter) return;
             try writeByte(writer_ctx, writer_impl, byte);
         }
-        // Can not throw `error.StreamTooLong` since there are no
-        // boundary.
     }
 }
 
@@ -206,7 +205,6 @@ pub inline fn readStruct(
     reader_impl: Impl(Reader, @TypeOf(reader_ctx)),
     comptime T: type,
 ) (reader_impl.ReadError || error{EndOfStream})!T {
-    // Only extern and packed structs have defined in-memory layout.
     comptime assert(@typeInfo(T).Struct.layout != .Auto);
     var res: [1]T = undefined;
     try readNoEof(reader_ctx, reader_impl, mem.sliceAsBytes(res[0..]));
@@ -231,11 +229,6 @@ pub inline fn readEnum(
     comptime Enum: type,
     endian: std.builtin.Endian,
 ) (reader_impl.ReadError || error{ EndOfStream, InvalidValue })!Enum {
-    const E = error{
-        /// An integer was read, but it did not match any of the tags
-        /// in the supplied enum.
-        InvalidValue,
-    };
     const type_info = @typeInfo(Enum).Enum;
     const tag = try readInt(
         reader_ctx,
@@ -250,12 +243,12 @@ pub inline fn readEnum(
         }
     }
 
-    return E.InvalidValue;
+    return error.InvalidValue;
 }
 
 pub fn Writer(comptime T: type) type {
     return struct {
-        WriteError: type = error{},
+        WriteError: type = anyerror,
         write: fn (writer_ctx: T, bytes: []const u8) anyerror!usize,
     };
 }
@@ -327,19 +320,18 @@ pub fn writeStruct(
     writer_impl: Impl(Writer, @TypeOf(writer_ctx)),
     value: anytype,
 ) writer_impl.WriteError!void {
-    // Only extern and packed structs have defined in-memory layout.
     comptime assert(@typeInfo(@TypeOf(value)).Struct.layout != .Auto);
     return writeAll(writer_ctx, writer_impl, mem.asBytes(&value));
 }
 
 pub fn Seekable(comptime T: type) type {
     return struct {
-        SeekError: type = error{},
+        SeekError: type = anyerror,
 
         seekTo: fn (seek_ctx: T, pos: u64) anyerror!void,
         seekBy: fn (seek_ctx: T, amt: i64) anyerror!void,
 
-        GetSeekPosError: type = error{},
+        GetSeekPosError: type = anyerror,
 
         getPos: fn (seek_ctx: T) anyerror!u64,
         getEndPos: fn (seek_ctx: T) anyerror!u64,

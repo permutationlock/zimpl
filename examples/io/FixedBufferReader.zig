@@ -6,7 +6,9 @@ const io = @import("../io.zig");
 buffer: []const u8,
 pos: usize = 0,
 
-pub fn read(self: *@This(), out_buffer: []u8) error{}!usize {
+pub const ReadError = error{};
+
+pub fn read(self: *@This(), out_buffer: []u8) ReadError!usize {
     const len = @min(self.buffer[self.pos..].len, out_buffer.len);
     @memcpy(
         out_buffer[0..len],
