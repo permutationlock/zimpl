@@ -9,6 +9,10 @@ pub const FixedBufferReader = @import("io/FixedBufferReader.zig");
 pub const FixedBufferStream = @import("io/FixedBufferStream.zig");
 pub const CountingWriter = @import("io/counting_writer.zig").CountingWriter;
 pub const countingWriter = @import("io/counting_writer.zig").countingWriter;
+pub const BufferedReader = @import("io/buffered_reader.zig").BufferedReader;
+pub const bufferedReader = @import("io/buffered_reader.zig").bufferedReader;
+pub const BufferedWriter = @import("io/buffered_writer.zig").BufferedWriter;
+pub const bufferedWriter = @import("io/buffered_writer.zig").bufferedWriter;
 
 pub const null_writer = NullWriter{};
 
@@ -27,6 +31,7 @@ pub fn Reader(comptime T: type) type {
     return struct {
         ReadError: type = anyerror,
         read: fn (reader_ctx: T, buffer: []u8) anyerror!usize,
+        getBuffer: ?fn (reader_ctx: T) []const u8 = null,
     };
 }
 
@@ -82,6 +87,30 @@ pub inline fn streamUntilDelimiter(
     EndOfStream,
     StreamTooLong,
 })!void {
+    if (reader_impl.getBuffer) |getBuffer| {
+        while (true) {
+            const buffer = getBuffer(reader_ctx);
+            if (buffer.len == 0) {
+                return error.EndOfStream;
+            }
+            const len = std.mem.indexOfScalar(
+                u8,
+                buffer,
+                delimiter,
+            ) orelse buffer.len;
+            if (optional_max_size) |max| {
+                if (len > max) {
+                    return error.StreamTooLong;
+                }
+            }
+
+            try writeAll(writer_ctx, writer_impl, buffer[0..len]);
+            if (len != buffer.len) {
+                return skipBytes(reader_ctx, reader_impl, len + 1, .{});
+            }
+            try skipBytes(reader_ctx, reader_impl, len, .{});
+        }
+    }
     if (optional_max_size) |max_size| {
         for (0..max_size) |_| {
             const byte: u8 = try readByte(reader_ctx, reader_impl);
@@ -103,6 +132,29 @@ pub inline fn skipUntilDelimiterOrEof(
     reader_impl: Impl(Reader, @TypeOf(reader_ctx)),
     delimiter: u8,
 ) reader_impl.ReadError!void {
+    if (reader_impl.getBuffer) |getBuffer| {
+        while (true) {
+            const buffer = getBuffer(reader_ctx);
+            if (buffer.len == 0) {
+                return error.EndOfStream;
+            }
+            const len = std.mem.indexOfScalar(
+                u8,
+                buffer,
+                delimiter,
+            ) orelse buffer.len;
+            if (len != buffer.len) {
+                skipBytes(
+                    reader_ctx,
+                    reader_impl,
+                    len + 1,
+                    .{},
+                ) catch unreachable;
+                return;
+            }
+            skipBytes(reader_ctx, reader_impl, len, .{}) catch unreachable;
+        }
+    }
     while (true) {
         const byte = readByte(reader_ctx, reader_impl) catch |err| switch (err) {
             error.EndOfStream => return,
@@ -192,9 +244,23 @@ pub inline fn isBytes(
 ) (reader_impl.ReadError || error{EndOfStream})!bool {
     var i: usize = 0;
     var matches = true;
-    while (i < slice.len) : (i += 1) {
-        if (slice[i] != try readByte(reader_ctx, reader_impl)) {
-            matches = false;
+    while (i < slice.len) {
+        if (reader_impl.getBuffer) |getBuffer| {
+            const buffer = getBuffer(reader_ctx);
+            const len = @min(buffer.len, slice.len - i);
+            if (len == 0) {
+                return error.EndOfStream;
+            }
+            if (!std.mem.eql(u8, slice[i..(i + len)], buffer[0..len])) {
+                matches = false;
+            }
+            try skipBytes(reader_ctx, reader_impl, len);
+            i += len;
+        } else {
+            if (slice[i] != try readByte(reader_ctx, reader_impl)) {
+                matches = false;
+            }
+            i += 1;
         }
     }
     return matches;

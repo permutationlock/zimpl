@@ -47,6 +47,10 @@ pub fn getEndPos(self: *const @This()) error{}!u64 {
     return self.buffer.len;
 }
 
+pub fn getBuffer(self: *const @This()) []const u8 {
+    return self.buffer[self.pos..];
+}
+
 test "read and seek" {
     const buffer: []const u8 = "I really hope that this works!";
     var stream = @This(){ .buffer = buffer, .pos = 0 };

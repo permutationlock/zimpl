@@ -67,6 +67,10 @@ pub fn getWritten(self: *const @This()) []u8 {
     return self.buffer[0..self.pos];
 }
 
+pub fn getBuffer(self: *const @This()) []const u8 {
+    return self.buffer[self.pos..];
+}
+
 test "write, seek 0, and read back" {
     const in_buf: []const u8 = "I really hope that this works!";
 
