@@ -31,7 +31,7 @@ pub fn Reader(comptime T: type) type {
     return struct {
         ReadError: type = anyerror,
         read: fn (reader_ctx: T, buffer: []u8) anyerror!usize,
-        getBuffer: ?fn (reader_ctx: T) []const u8 = null,
+        readBuffer: ?fn (reader_ctx: T) anyerror![]const u8 = null,
     };
 }
 
@@ -41,6 +41,23 @@ pub inline fn read(
     buffer: []u8,
 ) reader_impl.ReadError!usize {
     return @errorCast(reader_impl.read(reader_ctx, buffer));
+}
+
+pub inline fn isBufferedReader(
+    comptime ReaderCtx: type,
+    reader_impl: Impl(Reader, ReaderCtx),
+) bool {
+    return !(reader_impl.readBuffer == null);
+}
+
+pub inline fn readBuffer(
+    reader_ctx: anytype,
+    reader_impl: Impl(Reader, @TypeOf(reader_ctx)),
+) reader_impl.ReadError![]const u8 {
+    if (reader_impl.readBuffer) |readBufferFn| {
+        return @errorCast(readBufferFn(reader_ctx));
+    }
+    @compileError("called 'readBuffer' on unbuffered reader");
 }
 
 pub inline fn readAll(
@@ -87,9 +104,9 @@ pub inline fn streamUntilDelimiter(
     EndOfStream,
     StreamTooLong,
 })!void {
-    if (reader_impl.getBuffer) |getBuffer| {
+    if (isBufferedReader(@TypeOf(reader_ctx), reader_impl)) {
         while (true) {
-            const buffer = getBuffer(reader_ctx);
+            const buffer = try readBuffer(reader_ctx, reader_impl);
             if (buffer.len == 0) {
                 return error.EndOfStream;
             }
@@ -110,19 +127,20 @@ pub inline fn streamUntilDelimiter(
             }
             try skipBytes(reader_ctx, reader_impl, len, .{});
         }
-    }
-    if (optional_max_size) |max_size| {
-        for (0..max_size) |_| {
-            const byte: u8 = try readByte(reader_ctx, reader_impl);
-            if (byte == delimiter) return;
-            try writeByte(writer_ctx, writer_impl, byte);
-        }
-        return error.StreamTooLong;
     } else {
-        while (true) {
-            const byte: u8 = try readByte(reader_ctx, reader_impl);
-            if (byte == delimiter) return;
-            try writeByte(writer_ctx, writer_impl, byte);
+        if (optional_max_size) |max_size| {
+            for (0..max_size) |_| {
+                const byte: u8 = try readByte(reader_ctx, reader_impl);
+                if (byte == delimiter) return;
+                try writeByte(writer_ctx, writer_impl, byte);
+            }
+            return error.StreamTooLong;
+        } else {
+            while (true) {
+                const byte: u8 = try readByte(reader_ctx, reader_impl);
+                if (byte == delimiter) return;
+                try writeByte(writer_ctx, writer_impl, byte);
+            }
         }
     }
 }
@@ -132,9 +150,9 @@ pub inline fn skipUntilDelimiterOrEof(
     reader_impl: Impl(Reader, @TypeOf(reader_ctx)),
     delimiter: u8,
 ) reader_impl.ReadError!void {
-    if (reader_impl.getBuffer) |getBuffer| {
+    if (isBufferedReader(@TypeOf(reader_ctx), reader_impl)) {
         while (true) {
-            const buffer = getBuffer(reader_ctx);
+            const buffer = try readBuffer(reader_ctx, reader_impl);
             if (buffer.len == 0) {
                 return error.EndOfStream;
             }
@@ -154,13 +172,17 @@ pub inline fn skipUntilDelimiterOrEof(
             }
             skipBytes(reader_ctx, reader_impl, len, .{}) catch unreachable;
         }
-    }
-    while (true) {
-        const byte = readByte(reader_ctx, reader_impl) catch |err| switch (err) {
-            error.EndOfStream => return,
-            else => |e| return e,
-        };
-        if (byte == delimiter) return;
+    } else {
+        while (true) {
+            const byte = readByte(
+                reader_ctx,
+                reader_impl,
+            ) catch |err| switch (err) {
+                error.EndOfStream => return,
+                else => |e| return e,
+            };
+            if (byte == delimiter) return;
+        }
     }
 }
 
@@ -245,8 +267,8 @@ pub inline fn isBytes(
     var i: usize = 0;
     var matches = true;
     while (i < slice.len) {
-        if (reader_impl.getBuffer) |getBuffer| {
-            const buffer = getBuffer(reader_ctx);
+        if (isBufferedReader(@TypeOf(reader_ctx), reader_impl)) {
+            const buffer = try readBuffer(reader_ctx, reader_impl);
             const len = @min(buffer.len, slice.len - i);
             if (len == 0) {
                 return error.EndOfStream;
@@ -316,15 +338,25 @@ pub fn Writer(comptime T: type) type {
     return struct {
         WriteError: type = anyerror,
         write: fn (writer_ctx: T, bytes: []const u8) anyerror!usize,
+        flush: ?fn (writer_ctx: T) anyerror!void = null,
     };
 }
 
-pub fn write(
+pub inline fn write(
     writer_ctx: anytype,
     writer_impl: Impl(Writer, @TypeOf(writer_ctx)),
     bytes: []const u8,
 ) writer_impl.WriteError!usize {
     return @errorCast(writer_impl.write(writer_ctx, bytes));
+}
+
+pub inline fn flush(
+    writer_ctx: anytype,
+    writer_impl: Impl(Writer, @TypeOf(writer_ctx)),
+) writer_impl.WriteError!void {
+    if (writer_impl.flush) |flushFn| {
+        return @errorCast(flushFn(writer_ctx));
+    }
 }
 
 pub fn writeAll(

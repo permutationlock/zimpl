@@ -18,6 +18,10 @@ pub fn read(self: *@This(), out_buffer: []u8) ReadError!usize {
     return len;
 }
 
+pub fn readBuffer(self: *const @This()) ReadError![]const u8 {
+    return self.buffer[self.pos..];
+}
+
 pub fn seekTo(self: *@This(), pos: u64) error{}!void {
     if (std.math.cast(usize, pos)) |usize_pos| {
         self.pos = @min(self.buffer.len, usize_pos);
@@ -47,10 +51,6 @@ pub fn getEndPos(self: *const @This()) error{}!u64 {
     return self.buffer.len;
 }
 
-pub fn getBuffer(self: *const @This()) []const u8 {
-    return self.buffer[self.pos..];
-}
-
 test "read and seek" {
     const buffer: []const u8 = "I really hope that this works!";
     var stream = @This(){ .buffer = buffer, .pos = 0 };
@@ -66,4 +66,9 @@ test "read and seek" {
     const len2 = try io.readAll(&stream, .{}, &out_buf);
     try testing.expectEqual(buffer.len, len2);
     try testing.expectEqualSlices(u8, buffer, &out_buf);
+}
+
+test "FixedBufferReader is a buffered io.Reader" {
+    const impl = @import("zimpl").Impl(io.Reader, *@This()){};
+    try std.testing.expect(!(impl.readBuffer == null));
 }

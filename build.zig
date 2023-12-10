@@ -26,7 +26,7 @@ pub fn build(b: *Builder) !void {
 
     inline for (examples) |example| {
         const ex_test = b.addTest(.{
-            .name = "example_" ++ example.name,
+            .name = example.name,
             .root_source_file = .{ .path = example.path },
             .target = target,
             .optimize = optimize,

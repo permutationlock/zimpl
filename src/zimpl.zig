@@ -1,31 +1,22 @@
-const Type = @import("std").builtin.Type;
-
 pub fn Impl(comptime Ifc: fn (type) type, comptime T: type) type {
-    switch (@typeInfo(Unwrap(T))) {
+    const U = switch (@typeInfo(T)) {
+        .Pointer => |info| if (info.size == .One) info.child else T,
+        else => T,
+    };
+    switch (@typeInfo(U)) {
         .Struct, .Union, .Enum, .Opaque => {},
         else => return Ifc(T),
     }
-    const ifc = @typeInfo(Ifc(T)).Struct.fields;
-    var fields = @as(*const [ifc.len]Type.StructField, @ptrCast(ifc.ptr)).*;
+    var fields = @typeInfo(Ifc(T)).Struct.fields[0..].*;
     for (&fields) |*field| {
-        if (@hasDecl(Unwrap(T), field.name)) {
-            const decl = @field(Unwrap(T), field.name);
-            field.*.default_value = &@as(field.type, decl);
+        if (@hasDecl(U, field.name)) {
+            field.*.default_value = &@as(field.type, @field(U, field.name));
         }
     }
-    return @Type(Type{ .Struct = .{
+    return @Type(@import("std").builtin.Type{ .Struct = .{
         .layout = .Auto,
         .fields = &fields,
-        .decls = &[0]Type.Declaration{},
+        .decls = &.{},
         .is_tuple = false,
     } });
-}
-
-fn Unwrap(comptime T: type) type {
-    return switch (@typeInfo(T)) {
-        .Pointer => |info| if (info.size == .One) Unwrap(info.child) else T,
-        .Optional => |info| Unwrap(info.child),
-        .ErrorUnion => |info| Unwrap(info.payload),
-        else => T,
-    };
 }

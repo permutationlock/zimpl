@@ -59,10 +59,10 @@ pub fn main() !void {
             io.seekTo(&fbr, .{}, 0) catch unreachable;
 
             while (true) {
-                // use as unbuffered reader by setting 'getBuffer = null'
+                // use as unbuffered reader by setting 'readBuffer = null'
                 io.streamUntilDelimiter(
                     &fbr,
-                    .{ .getBuffer = null },
+                    .{ .readBuffer = null },
                     &out_stream,
                     .{},
                     '\n',

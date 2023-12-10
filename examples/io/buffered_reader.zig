@@ -18,6 +18,15 @@ pub fn BufferedReader(
 
         pub const ReadError = child_impl.ReadError;
 
+        fn fill(self: *@This()) ReadError!void {
+            self.start = 0;
+            self.end = try io.read(
+                self.child_ctx,
+                child_impl,
+                self.buffer[0..],
+            );
+        }
+
         pub fn read(self: *@This(), dest: []u8) ReadError!usize {
             var dest_index: usize = 0;
             while (dest_index < dest.len) {
@@ -30,16 +39,10 @@ pub fn BufferedReader(
                     self.buffer[self.start..][0..written],
                 );
                 if (written == 0) {
-                    const n = try io.read(
-                        self.child_ctx,
-                        child_impl,
-                        self.buffer[0..],
-                    );
-                    if (n == 0) {
+                    try self.fill();
+                    if (self.start == self.end) {
                         return dest_index;
                     }
-                    self.start = 0;
-                    self.end = n;
                 }
                 self.start += written;
                 dest_index += written;
@@ -47,7 +50,10 @@ pub fn BufferedReader(
             return dest.len;
         }
 
-        pub fn getBuffer(self: *const @This()) []const u8 {
+        pub fn readBuffer(self: *@This()) ReadError![]const u8 {
+            if (self.start == self.end) {
+                try self.fill();
+            }
             return self.buffer[self.start..self.end];
         }
     };

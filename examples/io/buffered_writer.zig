@@ -17,14 +17,18 @@ pub fn BufferedWriter(
 
         pub const WriteError = child_impl.WriteError;
 
+        pub fn flush(self: *@This()) WriteError!void {
+            try io.writeAll(
+                self.child_ctx,
+                child_impl,
+                self.buffer[0..self.end],
+            );
+            self.end = 0;
+        }
+
         pub fn write(self: *@This(), bytes: []const u8) WriteError!usize {
             if (self.end + bytes.len > self.buffer.len) {
-                try io.writeAll(
-                    self.child_ctx,
-                    child_impl,
-                    self.buffer[0..self.end],
-                );
-                self.end = 0;
+                try self.flush();
                 if (bytes.len > self.buffer.len) {
                     return io.write(self.child_ctx, child_impl, bytes);
                 }

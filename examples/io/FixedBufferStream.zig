@@ -21,6 +21,10 @@ pub fn read(self: *@This(), out_buffer: []u8) ReadError!usize {
     return len;
 }
 
+pub fn readBuffer(self: *const @This()) ReadError![]u8 {
+    return self.buffer[self.pos..];
+}
+
 pub fn write(self: *@This(), in_buffer: []const u8) WriteError!usize {
     const len = @min(self.buffer[self.pos..].len, in_buffer.len);
     if (len == 0) {
@@ -67,10 +71,6 @@ pub fn getWritten(self: *const @This()) []u8 {
     return self.buffer[0..self.pos];
 }
 
-pub fn getBuffer(self: *const @This()) []const u8 {
-    return self.buffer[self.pos..];
-}
-
 test "write, seek 0, and read back" {
     const in_buf: []const u8 = "I really hope that this works!";
 
@@ -86,4 +86,9 @@ test "write, seek 0, and read back" {
     const rlen = try io.readAll(&stream, .{}, &out_buf);
     try testing.expectEqual(in_buf.len, rlen);
     try testing.expectEqualSlices(u8, in_buf, &out_buf);
+}
+
+test "FixedBufferStream is a buffered io.Reader" {
+    const impl = @import("zimpl").Impl(io.Reader, *@This()){};
+    try std.testing.expect(!(impl.readBuffer == null));
 }

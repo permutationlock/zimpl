@@ -32,3 +32,34 @@ test "read file with std.os.fd_t" {
         fbs.getWritten(),
     );
 }
+
+test "read file with buffered std.fs.File" {
+    const file = try std.fs.cwd().openFile("examples/read_file/test.txt", .{});
+    var buffered_file = io.bufferedReader(256, file, .{});
+    var buffer: [32]u8 = undefined;
+    var fbs: FixedBufferStream = .{ .buffer = &buffer };
+    try io.streamUntilDelimiter(&buffered_file, .{}, &fbs, .{}, '\n', 32);
+    try std.testing.expectEqualStrings(
+        "Hello, I am a file!",
+        fbs.getWritten(),
+    );
+}
+
+test "read file with buffered std.os.fd_t" {
+    const fd = try std.os.open(
+        "examples/read_file/test.txt",
+        std.os.O.RDONLY,
+        0,
+    );
+    var buffered_fd = io.bufferedReader(256, fd, .{
+        .read = std.os.read,
+        .ReadError = std.os.ReadError,
+    });
+    var buffer: [32]u8 = undefined;
+    var fbs: FixedBufferStream = .{ .buffer = &buffer };
+    try io.streamUntilDelimiter(&buffered_fd, .{}, &fbs, .{}, '\n', 32);
+    try std.testing.expectEqualStrings(
+        "Hello, I am a file!",
+        fbs.getWritten(),
+    );
+}
