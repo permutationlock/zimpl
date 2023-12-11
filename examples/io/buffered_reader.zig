@@ -18,7 +18,7 @@ pub fn BufferedReader(
 
         pub const ReadError = child_impl.ReadError;
 
-        fn fill(self: *@This()) ReadError!void {
+        fn fillBuffer(self: *@This()) ReadError!void {
             self.start = 0;
             self.end = try io.read(
                 self.child_ctx,
@@ -39,7 +39,7 @@ pub fn BufferedReader(
                     self.buffer[self.start..][0..written],
                 );
                 if (written == 0) {
-                    try self.fill();
+                    try self.fillBuffer();
                     if (self.start == self.end) {
                         return dest_index;
                     }
@@ -52,7 +52,7 @@ pub fn BufferedReader(
 
         pub fn readBuffer(self: *@This()) ReadError![]const u8 {
             if (self.start == self.end) {
-                try self.fill();
+                try self.fillBuffer();
             }
             return self.buffer[self.start..self.end];
         }
@@ -71,6 +71,8 @@ test "buffered fixed buffer reader" {
     const buffer = "Hello! Is anybody there?";
     var fb_reader = io.FixedBufferReader{ .buffer = buffer };
     var buff_reader = bufferedReader(8, &fb_reader, .{});
+    try std.testing.expect(io.isBufferedReader(@TypeOf(&buff_reader), .{}));
+
     var out_bytes: [buffer.len]u8 = undefined;
     const len = try io.readAll(&buff_reader, .{}, &out_bytes);
     try std.testing.expectEqual(buffer.len, len);

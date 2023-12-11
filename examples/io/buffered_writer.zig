@@ -17,7 +17,7 @@ pub fn BufferedWriter(
 
         pub const WriteError = child_impl.WriteError;
 
-        pub fn flush(self: *@This()) WriteError!void {
+        pub fn flushBuffer(self: *@This()) WriteError!void {
             try io.writeAll(
                 self.child_ctx,
                 child_impl,
@@ -28,7 +28,7 @@ pub fn BufferedWriter(
 
         pub fn write(self: *@This(), bytes: []const u8) WriteError!usize {
             if (self.end + bytes.len > self.buffer.len) {
-                try self.flush();
+                try self.flushBuffer();
                 if (bytes.len > self.buffer.len) {
                     return io.write(self.child_ctx, child_impl, bytes);
                 }

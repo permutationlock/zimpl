@@ -11,17 +11,17 @@ declaration: `Impl`.
 pub fn Impl(comptime Ifc: fn (type) type, comptime T: type) type { ... }
 ```
 
-## Arguments
+If `T` is a single item pointer type, let `U` be the child type of
+the pointer, i.e. `T = *U`. Otherwise, we just let `U` be equal to `T`.
+
+### Arguments
 
 The function `Ifc` must always return a struct type.
-
-If `T` is a single item pointer type, let `U` be the child type of
-the pointer, i.e. `T=*U`. Otherwise let `U=T`.
 If `U` has a declaration matching the name of a field from
 `Ifc(T)` that cannot coerce to the type of that field, then a
 compile error will occur.
 
-## Return value
+### Return value
 
 The type `Impl(Ifc, T)` is a struct type with the same fields
 as `Ifc(T)`, but with the default value of each field set equal to

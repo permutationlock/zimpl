@@ -273,7 +273,7 @@ pub inline fn isBytes(
             if (len == 0) {
                 return error.EndOfStream;
             }
-            if (!std.mem.eql(u8, slice[i..(i + len)], buffer[0..len])) {
+            if (!std.mem.eql(u8, slice[i..][0..len], buffer[0..len])) {
                 matches = false;
             }
             try skipBytes(reader_ctx, reader_impl, len);
@@ -338,7 +338,7 @@ pub fn Writer(comptime T: type) type {
     return struct {
         WriteError: type = anyerror,
         write: fn (writer_ctx: T, bytes: []const u8) anyerror!usize,
-        flush: ?fn (writer_ctx: T) anyerror!void = null,
+        flushBuffer: ?fn (writer_ctx: T) anyerror!void = null,
     };
 }
 
@@ -350,11 +350,11 @@ pub inline fn write(
     return @errorCast(writer_impl.write(writer_ctx, bytes));
 }
 
-pub inline fn flush(
+pub inline fn flushBuffer(
     writer_ctx: anytype,
     writer_impl: Impl(Writer, @TypeOf(writer_ctx)),
 ) writer_impl.WriteError!void {
-    if (writer_impl.flush) |flushFn| {
+    if (writer_impl.flushBuffer) |flushFn| {
         return @errorCast(flushFn(writer_ctx));
     }
 }

@@ -69,6 +69,5 @@ test "read and seek" {
 }
 
 test "FixedBufferReader is a buffered io.Reader" {
-    const impl = @import("zimpl").Impl(io.Reader, *@This()){};
-    try std.testing.expect(!(impl.readBuffer == null));
+    try std.testing.expect(io.isBufferedReader(*@This(), .{}));
 }
