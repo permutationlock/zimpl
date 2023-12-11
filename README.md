@@ -5,14 +5,14 @@ that emerged from a tiny subset of [ztrait][1]. See [here][3]
 for some motivation.
 
 The `zimpl` module is ~20 lines of code and exposes one public
-declaration: `Impl`.
+declaration:
 
 ```Zig
 pub fn Impl(comptime Ifc: fn (type) type, comptime T: type) type { ... }
 ```
 
-If `T` is a single item pointer type, let `U` be the child type of
-the pointer, i.e. `T = *U`. Otherwise, we just let `U` be equal to `T`.
+If `T` is a single-item pointer type, let `U` be the child type, i.e.
+`T = *U`. Otherwise, we set `U` equal to `T`.
 
 ### Arguments
 

@@ -154,7 +154,7 @@ pub inline fn skipUntilDelimiterOrEof(
         while (true) {
             const buffer = try readBuffer(reader_ctx, reader_impl);
             if (buffer.len == 0) {
-                return error.EndOfStream;
+                return;
             }
             const len = std.mem.indexOfScalar(
                 u8,
