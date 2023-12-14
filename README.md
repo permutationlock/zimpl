@@ -9,7 +9,7 @@ interfaces via `comptime` generated [vtables][5].
 
 ## Static dispatch
 
-### 'Impl'
+### `Impl`
 
 ```Zig
 pub fn Impl(comptime Ifc: fn (type) type, comptime T: type) type { ... }
@@ -153,7 +153,7 @@ with the same signature.
 pub fn makeVIfc(
     comptime Ifc: fn (type) type,
     comptime access: CtxAccess,
-) fn (anytype, anytype) VIfc(Ifc) { ... }
+) fn (ctx: anytype, impl: Impl(Ifc, CtxType(Ctx, access))) VIfc(Ifc) { ... }
 ```
 
 ### Arguments
@@ -163,13 +163,13 @@ The `Ifc` function must always return a struct type.
 ### Return value
 
 Returns a function to construct a `VIfc(Ifc)` vtable interface from a
-concrete interface implementation.
+concrete runtime context and corresponding interface implementation.
 
-Since vtable interfaces require
-all contexts to be pointers, the `access` parameters allows for
-vtables to be constructed for non-pointer contexts by adding a layer
-if indirection: a pointer to the context is stored and dereferenced
-to be passed to the internal member function implementations.
+Since vtable interfaces store
+contexts as type-erased pointers, the `access` parameters allows for
+vtables to work with non-pointer contexts by adding a layer
+if indirection: the pointer to the context is dereferenced and passed
+by value to the concrete interface function implementations.
 
 ### Example
 
@@ -177,6 +177,7 @@ to be passed to the internal member function implementations.
 // An interface
 pub fn Reader(comptime T: type) type {
     return struct {
+        // non-function fields are fine, but vtable interfaces ignore them
         ReadError: type = anyerror,
         read: fn (reader_ctx: T, buffer: []u8) anyerror!usize,
     };
