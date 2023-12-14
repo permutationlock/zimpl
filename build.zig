@@ -20,6 +20,7 @@ pub fn build(b: *Builder) !void {
         .{ .name = "iterator", .path = "examples/iterator.zig" },
         .{ .name = "io", .path = "examples/io.zig" },
         .{ .name = "read_file", .path = "examples/read_file.zig" },
+        .{ .name = "vcount", .path = "examples/vcount.zig" },
     };
 
     const test_step = b.step("test", &.{});

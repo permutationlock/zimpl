@@ -3,7 +3,7 @@ const testing = std.testing;
 
 const Impl = @import("zimpl").Impl;
 
-fn Counter(comptime T: type) type {
+pub fn Counter(comptime T: type) type {
     return struct {
         increment: fn (T) void,
         read: fn (T) usize,

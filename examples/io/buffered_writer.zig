@@ -4,6 +4,7 @@ const testing = std.testing;
 const Impl = @import("zimpl").Impl;
 
 const io = @import("../io.zig");
+const vio = @import("../vio.zig");
 
 pub fn BufferedWriter(
     comptime buffer_size: usize,
@@ -55,5 +56,15 @@ test "count bytes written to null_writer" {
     try io.writeAll(&buff_writer, .{}, "Hello!");
     try std.testing.expectEqual(@as(usize, 0), count_writer.bytes_written);
     try io.writeAll(&buff_writer, .{}, "Is anybody there?");
+    try std.testing.expectEqual(@as(usize, 23), count_writer.bytes_written);
+}
+
+test "virtual count bytes written to null_writer" {
+    var count_writer = io.countingWriter(io.null_writer, .{});
+    var buff_writer = bufferedWriter(8, &count_writer, .{});
+    const writer = vio.makeWriter(&buff_writer, .{});
+    try vio.writeAll(writer, "Hello!");
+    try std.testing.expectEqual(@as(usize, 0), count_writer.bytes_written);
+    try vio.writeAll(writer, "Is anybody there?");
     try std.testing.expectEqual(@as(usize, 23), count_writer.bytes_written);
 }

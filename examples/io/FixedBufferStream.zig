@@ -2,6 +2,7 @@ const std = @import("std");
 const testing = std.testing;
 
 const io = @import("../io.zig");
+const vio = @import("../vio.zig");
 
 buffer: []u8,
 pos: usize = 0,
@@ -84,6 +85,25 @@ test "write, seek 0, and read back" {
     try testing.expectEqual(@as(u64, 0), try io.getPos(&stream, .{}));
 
     const rlen = try io.readAll(&stream, .{}, &out_buf);
+    try testing.expectEqual(in_buf.len, rlen);
+    try testing.expectEqualSlices(u8, in_buf, &out_buf);
+}
+
+test "virtual write and read back" {
+    const in_buf: []const u8 = "I really hope that this works!";
+
+    var stream_buf: [in_buf.len]u8 = undefined;
+    var stream = @This(){ .buffer = &stream_buf, .pos = 0 };
+    const writer = vio.makeWriter(&stream, .{});
+
+    try vio.writeAll(writer, in_buf);
+
+    stream.pos = 0;
+
+    const reader = vio.makeReader(&stream, .{});
+    var out_buf: [in_buf.len]u8 = undefined;
+    const rlen = try vio.readAll(reader, &out_buf);
+
     try testing.expectEqual(in_buf.len, rlen);
     try testing.expectEqualSlices(u8, in_buf, &out_buf);
 }

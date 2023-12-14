@@ -4,8 +4,10 @@ A dead simple implementation of [static dispatch][2] interfaces in Zig
 that emerged from a tiny subset of [ztrait][1]. See [here][3]
 for some motivation.
 
-The `zimpl` module is ~20 lines of code and exposes one public
-declaration:
+Recently added is a compatible implementation of [dynamic dispatch][4]
+interfaces via `comptime` generated [vtables][5].
+
+## Static dispatch with `Impl`
 
 ```Zig
 pub fn Impl(comptime Ifc: fn (type) type, comptime T: type) type { ... }
@@ -28,7 +30,7 @@ as `Ifc(T)`, but with the default value of each field set equal to
 the declaration of `U` of the same name, if such a declaration
 exists.
 
-## Example
+### Example
 
 ```Zig
 // An interface
@@ -118,9 +120,141 @@ test "use std.os.fd_t as a reader via an explicitly defined interface" {
 }
 ```
 
-More in-depth [examples][4] are provided.
+## Dynamic dispatch with `VIfc` and `makeVIfc`
+
+```
+pub fn VIfc(comptime Ifc: fn (type) type) type { ... }
+```
+### Arguments
+
+The `Ifc` function must always return a struct type.
+
+### Return value
+
+Returns a struct of the following form:
+```
+struct {
+    ctx: *anyopaque,
+    vtable: VTable(Ifc),
+};
+```
+The struct type `VTable(Ifc)` contains one field for each field of
+`Ifc(*anyopaque)` that is a (optional) function. The type
+of each vtable field is converted to a (optional) function pointer
+with the same signature.
+
+```
+pub fn makeVIfc(
+    comptime Ifc: fn (type) type,
+    comptime access: CtxAccess,
+) fn (anytype, anytype) VIfc(Ifc) { ... }
+```
+
+### Arguments
+
+The `Ifc` function must always return a struct type.
+
+### Return value
+
+Returns a function to construct a `VIfc(Ifc)` vtable interface from a
+concrete interface implementation. Since vtable interfaces require
+all contexts to be pointers, the `access` parameters allows for
+vtables to be constructed for non-pointer contexts by adding a layer
+if indirection: a pointer to the context is stored and dereferenced
+to be passed to the internal member function implementations.
+
+### Example
+
+```Zig
+// An interface
+pub fn Reader(comptime T: type) type {
+    return struct {
+        ReadError: type = anyerror,
+        read: fn (reader_ctx: T, buffer: []u8) anyerror!usize,
+    };
+}
+
+// Functions to construct virtual 'Reader' interface implementations
+const makeReader = makeVIfc(Reader, .Direct);
+const makeReaderI = makeVIfc(Reader, .Indirect);
+
+// A collection of functions using virtual 'Reader' interfaces
+pub const vio = struct {
+    pub inline fn read(reader: VIfc(Reader), buffer: []u8) anyerror!usize {
+        return reader.vtable.read(reader.ctx, buffer);
+    }
+
+    pub inline fn readAll(reader: VIfc(Reader), buffer: []u8) anyerror!usize {
+        return readAtLeast(reader, buffer, buffer.len);
+    }
+
+    pub fn readAtLeast(
+        reader: VIfc(Reader),
+        buffer: []u8,
+        len: usize,
+    ) anyerror!usize {
+        assert(len <= buffer.len);
+        var index: usize = 0;
+        while (index < len) {
+            const amt = try read(reader, buffer[index..]);
+            if (amt == 0) break;
+            index += amt;
+        }
+        return index;
+    }
+};
+
+test "define and use a reader" {
+    const FixedBufferReader = struct {
+        buffer: []const u8,
+        pos: usize = 0,
+
+        pub const ReadError = error{};
+
+        pub fn read(self: *@This(), out_buffer: []u8) ReadError!usize {
+            const len = @min(self.buffer[self.pos..].len, out_buffer.len);
+            @memcpy(out_buffer[0..len], self.buffer[self.pos..][0..len]);
+            self.pos += len;
+            return len;
+        }
+    };
+    const in_buf: []const u8 = "I really hope that this works!";
+    var reader = FixedBufferReader{ .buffer = in_buf };
+
+    var out_buf: [16]u8 = undefined;
+    const len = try vio.readAll(makeReader(&reader, .{}), &out_buf);
+
+    try testing.expectEqualStrings(in_buf[0..len], out_buf[0..len]);
+}
+
+test "use std.fs.File as a reader" {
+    var buffer: [19]u8 = undefined;
+    var file = try std.fs.cwd().openFile("my_file.txt", .{});
+    try vio.readAll(makeReaderI(&file, .{}), &buffer);
+
+    try std.testing.expectEqualStrings("Hello, I am a file!", &buffer);
+}
+
+test "use std.os.fd_t as a reader via an explicitly defined interface" {
+    var buffer: [19]u8 = undefined;
+    const fd = try std.os.open("my_file.txt", std.os.O.RDONLY, 0);
+    try vio.readAll(
+        makeReaderI(
+            &fd,
+            .{
+                .read = std.os.read,
+                .ReadError = std.os.ReadError,
+            },
+        ),
+        &buffer,
+    );
+
+    try std.testing.expectEqualStrings("Hello, I am a file!", &buffer);
+}
+```
 
 [1]: https://github.com/permutationlock/ztrait
 [2]: https://en.wikipedia.org/wiki/Static_dispatch
 [3]: https://github.com/permutationlock/zimpl/blob/main/why.md
 [4]: https://github.com/permutationlock/zimpl/blob/main/examples
+[5]: https://en.wikipedia.org/wiki/Dynamic_dispatch

@@ -6,21 +6,20 @@ const LOOPS = 1000;
 pub fn main() !void {
     var in: [10000]u8 = undefined;
     try std.os.getrandom(&in);
-    var fbr = io.FixedBufferReader{ .buffer = &in };
-
-    var out: [10000]u8 = undefined;
-    var out_stream = io.FixedBufferStream{ .buffer = &out };
 
     {
-        // time buffered stream
+        // time buffered generic stream
+        var fbr = io.FixedBufferReader{ .buffer = &in };
+        var out: [10000]u8 = undefined;
+        var out_stream = io.FixedBufferStream{ .buffer = &out };
+
         var found: usize = 0;
         var bytes: usize = 0;
 
-        io.seekTo(&out_stream, .{}, 0) catch unreachable;
         var timer = try std.time.Timer.start();
 
         for (0..LOOPS) |_| {
-            io.seekTo(&fbr, .{}, 0) catch unreachable;
+            fbr.pos = 0;
 
             while (true) {
                 io.streamUntilDelimiter(
@@ -37,7 +36,7 @@ pub fn main() !void {
 
                 found += 1;
                 bytes += out_stream.getWritten().len;
-                io.seekTo(&out_stream, .{}, 0) catch unreachable;
+                out_stream.pos = 0;
             }
         }
         const elapsed = timer.lap();
@@ -48,15 +47,17 @@ pub fn main() !void {
     }
 
     {
-        // time unbuffered stream
+        // time unbuffered generic stream
+        var fbr = io.FixedBufferReader{ .buffer = &in };
+        var out: [10000]u8 = undefined;
+        var out_stream = io.FixedBufferStream{ .buffer = &out };
         var found: usize = 0;
         var bytes: usize = 0;
 
-        io.seekTo(&out_stream, .{}, 0) catch unreachable;
         var timer = try std.time.Timer.start();
 
         for (0..LOOPS) |_| {
-            io.seekTo(&fbr, .{}, 0) catch unreachable;
+            fbr.pos = 0;
 
             while (true) {
                 // use as unbuffered reader by setting 'readBuffer = null'
@@ -74,7 +75,42 @@ pub fn main() !void {
 
                 found += 1;
                 bytes += out_stream.getWritten().len;
-                io.seekTo(&out_stream, .{}, 0) catch unreachable;
+                out_stream.pos = 0;
+            }
+        }
+        const elapsed = timer.lap();
+        std.debug.print(
+            "Took: {d}us ({d}ns / iteration) {d} entries, {d} bytes\n",
+            .{ elapsed / 1000, elapsed / LOOPS, found, bytes },
+        );
+    }
+
+    {
+        // time std.io stream
+        var found: usize = 0;
+        var bytes: usize = 0;
+        var fbr = std.io.fixedBufferStream(&in);
+        var out: [10000]u8 = undefined;
+        var out_stream = std.io.fixedBufferStream(&out);
+
+        var timer = try std.time.Timer.start();
+
+        for (0..LOOPS) |_| {
+            fbr.pos = 0;
+
+            while (true) {
+                fbr.reader().streamUntilDelimiter(
+                    out_stream.writer(),
+                    '\n',
+                    out.len,
+                ) catch |err| switch (err) {
+                    error.EndOfStream => break,
+                    else => return err,
+                };
+
+                found += 1;
+                bytes += out_stream.getWritten().len;
+                out_stream.pos = 0;
             }
         }
         const elapsed = timer.lap();

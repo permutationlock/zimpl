@@ -2,6 +2,7 @@ const std = @import("std");
 const testing = std.testing;
 
 const io = @import("../io.zig");
+const vio = @import("../vio.zig");
 
 buffer: []const u8,
 pos: usize = 0,
@@ -65,6 +66,17 @@ test "read and seek" {
 
     const len2 = try io.readAll(&stream, .{}, &out_buf);
     try testing.expectEqual(buffer.len, len2);
+    try testing.expectEqualSlices(u8, buffer, &out_buf);
+}
+
+test "virtual read" {
+    const buffer: []const u8 = "I really hope that this works!";
+    var stream = @This(){ .buffer = buffer, .pos = 0 };
+    const reader = vio.makeReader(&stream, .{});
+
+    var out_buf: [buffer.len]u8 = undefined;
+    const len1 = try vio.readAll(reader, &out_buf);
+    try testing.expectEqual(buffer.len, len1);
     try testing.expectEqualSlices(u8, buffer, &out_buf);
 }
 

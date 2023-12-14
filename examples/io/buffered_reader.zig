@@ -4,6 +4,7 @@ const testing = std.testing;
 const Impl = @import("zimpl").Impl;
 
 const io = @import("../io.zig");
+const vio = @import("../vio.zig");
 
 pub fn BufferedReader(
     comptime buffer_size: usize,
@@ -75,6 +76,19 @@ test "buffered fixed buffer reader" {
 
     var out_bytes: [buffer.len]u8 = undefined;
     const len = try io.readAll(&buff_reader, .{}, &out_bytes);
+    try std.testing.expectEqual(buffer.len, len);
+    try std.testing.expectEqualStrings(buffer, &out_bytes);
+}
+
+test "virtual buffered fixed buffer reader" {
+    const buffer = "Hello! Is anybody there?";
+    var fb_reader = io.FixedBufferReader{ .buffer = buffer };
+    var buff_reader = bufferedReader(8, &fb_reader, .{});
+    const reader = vio.makeReader(&buff_reader, .{});
+    try std.testing.expect(vio.isBufferedReader(reader));
+
+    var out_bytes: [buffer.len]u8 = undefined;
+    const len = try vio.readAll(reader, &out_bytes);
     try std.testing.expectEqual(buffer.len, len);
     try std.testing.expectEqualStrings(buffer, &out_bytes);
 }
