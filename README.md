@@ -7,7 +7,9 @@ for some motivation.
 Recently added is a compatible implementation of [dynamic dispatch][4]
 interfaces via `comptime` generated [vtables][5].
 
-## Static dispatch with `Impl`
+## Static dispatch
+
+### 'Impl'
 
 ```Zig
 pub fn Impl(comptime Ifc: fn (type) type, comptime T: type) type { ... }
@@ -120,9 +122,11 @@ test "use std.os.fd_t as a reader via an explicitly defined interface" {
 }
 ```
 
-## Dynamic dispatch with `VIfc` and `makeVIfc`
+## Dynamic dispatch
 
-```
+### `VIfc`
+
+```Zig
 pub fn VIfc(comptime Ifc: fn (type) type) type { ... }
 ```
 ### Arguments
@@ -132,7 +136,7 @@ The `Ifc` function must always return a struct type.
 ### Return value
 
 Returns a struct of the following form:
-```
+```Zig
 struct {
     ctx: *anyopaque,
     vtable: VTable(Ifc),
@@ -143,7 +147,9 @@ The struct type `VTable(Ifc)` contains one field for each field of
 of each vtable field is converted to a (optional) function pointer
 with the same signature.
 
-```
+### `makeVIfc`
+
+```Zig
 pub fn makeVIfc(
     comptime Ifc: fn (type) type,
     comptime access: CtxAccess,
@@ -157,7 +163,9 @@ The `Ifc` function must always return a struct type.
 ### Return value
 
 Returns a function to construct a `VIfc(Ifc)` vtable interface from a
-concrete interface implementation. Since vtable interfaces require
+concrete interface implementation.
+
+Since vtable interfaces require
 all contexts to be pointers, the `access` parameters allows for
 vtables to be constructed for non-pointer contexts by adding a layer
 if indirection: a pointer to the context is stored and dereferenced
@@ -256,5 +264,5 @@ test "use std.os.fd_t as a reader via an explicitly defined interface" {
 [1]: https://github.com/permutationlock/ztrait
 [2]: https://en.wikipedia.org/wiki/Static_dispatch
 [3]: https://github.com/permutationlock/zimpl/blob/main/why.md
-[4]: https://github.com/permutationlock/zimpl/blob/main/examples
-[5]: https://en.wikipedia.org/wiki/Dynamic_dispatch
+[4]: https://en.wikipedia.org/wiki/Dynamic_dispatch
+[5]: https://en.wikipedia.org/wiki/Virtual_method_table
