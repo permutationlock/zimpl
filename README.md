@@ -4,8 +4,9 @@ A dead simple implementation of [static dispatch][2] interfaces in Zig
 that emerged from a tiny subset of [ztrait][1]. See [here][3]
 for some motivation.
 
-Recently added is a compatible implementation of [dynamic dispatch][4]
-interfaces via `comptime` generated [vtables][5].
+Also included is a compatible implementation of [dynamic dispatch][4]
+interfaces via `comptime` generated [vtables][5]. Inspired by
+[`interface.zig`][6].
 
 ## Static dispatch
 
@@ -15,8 +16,10 @@ interfaces via `comptime` generated [vtables][5].
 pub fn Impl(comptime Ifc: fn (type) type, comptime T: type) type { ... }
 ```
 
-If `T` is a single-item pointer type, let `U` be the child type, i.e.
-`T = *U`. Otherwise, we set `U` equal to `T`.
+### Definitions
+
+If `T` is a single-item pointer type, define `U` to be the child type, i.e.
+`T = *U`. Otherwise, define `U` to be `T`.
 
 ### Arguments
 
@@ -267,3 +270,4 @@ test "use std.os.fd_t as a reader via an explicitly defined interface" {
 [3]: https://github.com/permutationlock/zimpl/blob/main/why.md
 [4]: https://en.wikipedia.org/wiki/Dynamic_dispatch
 [5]: https://en.wikipedia.org/wiki/Virtual_method_table
+[6]: https://github.com/alexnask/interface.zig
