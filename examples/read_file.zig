@@ -70,8 +70,8 @@ test "virtual read file with std.fs.File" {
     var buffer: [32]u8 = undefined;
     var fbs: FixedBufferStream = .{ .buffer = &buffer };
     try vio.streamUntilDelimiter(
-        vio.makeReaderI(&file, .{}),
-        vio.makeWriter(&fbs, .{}),
+        vio.makeReader(.Indirect, &file, .{}),
+        vio.makeWriter(.Direct, &fbs, .{}),
         '\n',
         32,
     );
@@ -90,11 +90,11 @@ test "virtual read file with std.os.fd_t" {
     var buffer: [32]u8 = undefined;
     var fbs: FixedBufferStream = .{ .buffer = &buffer };
     try vio.streamUntilDelimiter(
-        vio.makeReaderI(&fd, .{
+        vio.makeReader(.Indirect, &fd, .{
             .read = std.os.read,
             .ReadError = std.os.ReadError,
         }),
-        vio.makeWriter(&fbs, .{}),
+        vio.makeWriter(.Direct, &fbs, .{}),
         '\n',
         32,
     );

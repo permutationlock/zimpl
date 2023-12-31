@@ -10,8 +10,7 @@ const makeVIfc = zimpl.makeVIfc;
 const io = @import("io.zig");
 
 pub const Reader = VIfc(io.Reader);
-pub const makeReader = makeVIfc(io.Reader, .Direct);
-pub const makeReaderI = makeVIfc(io.Reader, .Indirect);
+pub const makeReader = makeVIfc(io.Reader);
 
 pub inline fn read(reader: Reader, buffer: []u8) anyerror!usize {
     return reader.vtable.read(reader.ctx, buffer);
@@ -247,8 +246,7 @@ pub fn readEnum(
 }
 
 pub const Writer = VIfc(io.Writer);
-pub const makeWriter = makeVIfc(io.Writer, .Direct);
-pub const makeWriterI = makeVIfc(io.Writer, .Indirect);
+pub const makeWriter = makeVIfc(io.Writer);
 
 pub inline fn write(writer: Writer, bytes: []const u8) anyerror!usize {
     return writer.vtable.write(writer.ctx, bytes);

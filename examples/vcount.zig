@@ -6,7 +6,7 @@ const VIfc = zimpl.VIfc;
 const makeVIfc = zimpl.makeVIfc;
 
 const Counter = VIfc(@import("count.zig").Counter);
-const makeCounter = makeVIfc(@import("count.zig").Counter, .Direct);
+const makeCounter = makeVIfc(@import("count.zig").Counter);
 
 pub fn countToTen(ctr: Counter) void {
     while (ctr.vtable.read(ctr.ctx) < 10) {
@@ -25,6 +25,7 @@ test "explicit implementation" {
     };
     var count: usize = 0;
     countToTen(makeCounter(
+        .Direct,
         &count,
         .{ .increment = USize.inc, .read = USize.deref },
     ));
@@ -45,7 +46,7 @@ const MyCounter = struct {
 
 test "infer implementation" {
     var my_counter: MyCounter = .{ .count = 0 };
-    countToTen(makeCounter(&my_counter, .{}));
+    countToTen(makeCounter(.Direct, &my_counter, .{}));
     try testing.expectEqual(@as(usize, 10), my_counter.count);
 }
 
@@ -56,6 +57,7 @@ fn otherInc(self: *MyCounter) void {
 test "override implementation" {
     var my_counter: MyCounter = .{ .count = 0 };
     countToTen(makeCounter(
+        .Direct,
         &my_counter,
         .{ .increment = otherInc },
     ));

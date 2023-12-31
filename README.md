@@ -155,8 +155,7 @@ with the same signature.
 ```Zig
 pub fn makeVIfc(
     comptime Ifc: fn (type) type,
-    comptime access: CtxAccess,
-) fn (ctx: anytype, impl: Impl(Ifc, CtxType(Ctx, access))) VIfc(Ifc) { ... }
+) fn (CtxAccess, anytype, anytype) VIfc(Ifc) { ... }
 ```
 
 ### Arguments
@@ -166,13 +165,29 @@ The `Ifc` function must always return a struct type.
 ### Return value
 
 Returns a function to construct a `VIfc(Ifc)` vtable interface from a
-concrete runtime context and corresponding interface implementation.
+concrete runtime context and corresponding interface implementation
+with the following signature.
 
-Since vtable interfaces store
-contexts as type-erased pointers, the `access` parameters allows for
-vtables to work with non-pointer contexts by adding a layer
-if indirection: the pointer to the context is dereferenced and passed
-by value to the concrete interface function implementations.
+```Zig
+fn makeFn(
+    comptime access: CtxAccess,
+    ctx: anytype,
+    impl: Impl(Ifc, CtxType(@TypeOf(ctx), access)),
+) VIfc(Ifc)
+```
+
+Since vtable interfaces store their
+context as a type-erased pointer, the `access` parameter is provided
+to allow vtables to be constructed for implementations that rely on
+non-pointer contexts.
+
+```Zig
+pub const CtxAccess = enum { Direct, Indirect };
+```
+
+If `access` is `.Indirect`, then the conetxt pointer
+is dereferenced and passed
+by value to member function implementations.
 
 ### Example
 
@@ -186,9 +201,8 @@ pub fn Reader(comptime T: type) type {
     };
 }
 
-// Functions to construct virtual 'Reader' interface implementations
-const makeReader = makeVIfc(Reader, .Direct);
-const makeReaderI = makeVIfc(Reader, .Indirect);
+// Function to construct a virtual 'Reader' interface implementation
+const makeReader = makeVIfc(Reader);
 
 // A collection of functions using virtual 'Reader' interfaces
 pub const vio = struct {
@@ -234,7 +248,7 @@ test "define and use a reader" {
     var reader = FixedBufferReader{ .buffer = in_buf };
 
     var out_buf: [16]u8 = undefined;
-    const len = try vio.readAll(makeReader(&reader, .{}), &out_buf);
+    const len = try vio.readAll(makeReader(.Direct, &reader, .{}), &out_buf);
 
     try testing.expectEqualStrings(in_buf[0..len], out_buf[0..len]);
 }
@@ -242,7 +256,7 @@ test "define and use a reader" {
 test "use std.fs.File as a reader" {
     var buffer: [19]u8 = undefined;
     var file = try std.fs.cwd().openFile("my_file.txt", .{});
-    try vio.readAll(makeReaderI(&file, .{}), &buffer);
+    try vio.readAll(makeReader(.Indirect, &file, .{}), &buffer);
 
     try std.testing.expectEqualStrings("Hello, I am a file!", &buffer);
 }
@@ -251,7 +265,8 @@ test "use std.os.fd_t as a reader via an explicitly defined interface" {
     var buffer: [19]u8 = undefined;
     const fd = try std.os.open("my_file.txt", std.os.O.RDONLY, 0);
     try vio.readAll(
-        makeReaderI(
+        makeReader(
+            .Indirect,
             &fd,
             .{
                 .read = std.os.read,

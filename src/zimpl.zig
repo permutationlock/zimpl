@@ -34,26 +34,22 @@ pub const CtxAccess = enum { Direct, Indirect };
 
 pub fn makeVIfc(
     comptime Ifc: fn (type) type,
-    comptime access: CtxAccess,
-) fn (anytype, anytype) VIfc(Ifc) {
+) fn (comptime CtxAccess, anytype, anytype) VIfc(Ifc) {
     return struct {
-        fn f(
+        fn makeFn(
+            comptime access: CtxAccess,
             ctx: anytype,
             impl: Impl(Ifc, CtxType(@TypeOf(ctx), access)),
         ) VIfc(Ifc) {
             return .{
                 .ctx = if (access == .Indirect) @constCast(ctx) else ctx,
-                .vtable = vtable(Ifc, @TypeOf(ctx), access, impl),
+                .vtable = vtable(Ifc, access, @TypeOf(ctx), impl),
             };
         }
-    }.f;
+    }.makeFn;
 }
 
-fn CtxType(comptime Ctx: type, comptime access: CtxAccess) type {
-    return if (access == .Indirect) PtrChild(Ctx) else Ctx;
-}
-
-fn VTable(comptime Ifc: fn (type) type) type {
+pub fn VTable(comptime Ifc: fn (type) type) type {
     const ifc_fields = @typeInfo(Ifc(*anyopaque)).Struct.fields;
     var fields: [ifc_fields.len]Type.StructField = undefined;
     var i: usize = 0;
@@ -90,20 +86,10 @@ fn VTable(comptime Ifc: fn (type) type) type {
     } });
 }
 
-fn PtrChild(comptime Ptr: type) type {
-    return switch (@typeInfo(Ptr)) {
-        .Pointer => |info| if (info.size == .One)
-            info.child
-        else
-            @compileError("expected single item pointer"),
-        else => @compileError("expected single item pointer"),
-    };
-}
-
-fn vtable(
+pub fn vtable(
     comptime Ifc: fn (type) type,
-    comptime Ctx: type,
     comptime access: CtxAccess,
+    comptime Ctx: type,
     comptime impl: Impl(Ifc, CtxType(Ctx, access)),
 ) VTable(Ifc) {
     var vt: VTable(Ifc) = undefined;
@@ -127,6 +113,20 @@ fn vtable(
     return vt;
 }
 
+fn PtrChild(comptime Ptr: type) type {
+    return switch (@typeInfo(Ptr)) {
+        .Pointer => |info| if (info.size == .One)
+            info.child
+        else
+            @compileError("expected single item pointer"),
+        else => @compileError("expected single item pointer"),
+    };
+}
+
+fn CtxType(comptime Ctx: type, comptime access: CtxAccess) type {
+    return if (access == .Indirect) PtrChild(Ctx) else Ctx;
+}
+
 fn virtualize(
     comptime VFn: type,
     comptime Ctx: type,
@@ -135,77 +135,89 @@ fn virtualize(
 ) VFn {
     const params = @typeInfo(@TypeOf(func)).Fn.params;
     const return_type = @typeInfo(VFn).Fn.return_type.?;
-    const Self = if (access == .Indirect) PtrChild(Ctx) else Ctx;
 
-    if (params.len == 0 or params[0].type.? != Self) {
+    if (params.len == 0 or params[0].type.? != CtxType(Ctx, access)) {
         return func;
     }
     return switch (params.len) {
         1 => struct {
-            fn impl(self: *anyopaque) return_type {
-                return func(castCtx(Self, access, self));
+            fn impl(ctx: *anyopaque) return_type {
+                return func(castCtx(access, Ctx, ctx));
             }
         }.impl,
         2 => struct {
-            fn impl(self: *anyopaque, p1: params[1].type.?) return_type {
-                return func(castCtx(Self, access, self), p1);
+            fn impl(ctx: *anyopaque, p1: params[1].type.?) return_type {
+                return func(castCtx(access, Ctx, ctx), p1);
             }
         }.impl,
         3 => struct {
             fn impl(
-                self: *anyopaque,
+                ctx: *anyopaque,
                 p1: params[1].type.?,
                 p2: params[2].type.?,
             ) return_type {
-                return func(castCtx(Self, access, self), p1, p2);
+                return func(castCtx(access, Ctx, ctx), p1, p2);
             }
         }.impl,
         4 => struct {
             fn impl(
-                self: *anyopaque,
+                ctx: *anyopaque,
                 p1: params[1].type.?,
                 p2: params[2].type.?,
                 p3: params[3].type.?,
             ) return_type {
-                return func(castCtx(Self, access, self), p1, p2, p3);
+                return func(castCtx(access, Ctx, ctx), p1, p2, p3);
             }
         }.impl,
         5 => struct {
             fn impl(
-                self: *anyopaque,
+                ctx: *anyopaque,
                 p1: params[1].type.?,
                 p2: params[2].type.?,
                 p3: params[3].type.?,
                 p4: params[4].type.?,
             ) return_type {
-                return func(castCtx(Self, access, self), p1, p2, p3, p4);
+                return func(castCtx(access, Ctx, ctx), p1, p2, p3, p4);
             }
         }.impl,
         6 => struct {
             fn impl(
-                self: *anyopaque,
+                ctx: *anyopaque,
                 p1: params[1].type.?,
                 p2: params[2].type.?,
                 p3: params[3].type.?,
                 p4: params[4].type.?,
                 p5: params[5].type.?,
             ) return_type {
-                return func(castCtx(Self, access, self), p1, p2, p3, p4, p5);
+                return func(castCtx(access, Ctx, ctx), p1, p2, p3, p4, p5);
+            }
+        }.impl,
+        7 => struct {
+            fn impl(
+                ctx: *anyopaque,
+                p1: params[1].type.?,
+                p2: params[2].type.?,
+                p3: params[3].type.?,
+                p4: params[4].type.?,
+                p5: params[5].type.?,
+                p6: params[6].type.?,
+            ) return_type {
+                return func(castCtx(access, Ctx, ctx), p1, p2, p3, p4, p5, p6);
             }
         }.impl,
         else => {
-            @compileError("cannot virtualize member functions with >6 params");
+            @compileError("can't virtualize member function: too many params");
         },
     };
 }
 
-fn castCtx(
-    comptime Ctx: type,
+inline fn castCtx(
     comptime access: CtxAccess,
+    comptime Ctx: type,
     ptr: *anyopaque,
-) Ctx {
+) CtxType(Ctx, access) {
     return if (access == .Indirect)
-        @as(*Ctx, @alignCast(@ptrCast(ptr))).*
+        @as(*CtxType(Ctx, access), @alignCast(@ptrCast(ptr))).*
     else
         @alignCast(@ptrCast(ptr));
 }

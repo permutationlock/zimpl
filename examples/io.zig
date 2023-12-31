@@ -276,7 +276,7 @@ pub inline fn isBytes(
             if (!std.mem.eql(u8, slice[i..][0..len], buffer[0..len])) {
                 matches = false;
             }
-            try skipBytes(reader_ctx, reader_impl, len);
+            try skipBytes(reader_ctx, reader_impl, len, .{});
             i += len;
         } else {
             if (slice[i] != try readByte(reader_ctx, reader_impl)) {
