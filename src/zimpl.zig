@@ -98,14 +98,14 @@ pub fn vtable(
         @field(vt, fld_info.name) = switch (@typeInfo(fld_info.type)) {
             .Optional => |opt| if (impl_func) |func| &virtualize(
                 @typeInfo(opt.child).Pointer.child,
-                Ctx,
                 access,
+                Ctx,
                 func,
             ) else null,
             else => &virtualize(
                 @typeInfo(fld_info.type).Pointer.child,
-                Ctx,
                 access,
+                Ctx,
                 impl_func,
             ),
         };
@@ -113,24 +113,14 @@ pub fn vtable(
     return vt;
 }
 
-fn PtrChild(comptime Ptr: type) type {
-    return switch (@typeInfo(Ptr)) {
-        .Pointer => |info| if (info.size == .One)
-            info.child
-        else
-            @compileError("expected single item pointer"),
-        else => @compileError("expected single item pointer"),
-    };
-}
-
 fn CtxType(comptime Ctx: type, comptime access: CtxAccess) type {
-    return if (access == .Indirect) PtrChild(Ctx) else Ctx;
+    return if (access == .Indirect) @typeInfo(Ctx).Pointer.child else Ctx;
 }
 
 fn virtualize(
     comptime VFn: type,
-    comptime Ctx: type,
     comptime access: CtxAccess,
+    comptime Ctx: type,
     comptime func: anytype,
 ) VFn {
     const params = @typeInfo(@TypeOf(func)).Fn.params;

@@ -165,11 +165,11 @@ The `Ifc` function must always return a struct type.
 ### Return value
 
 Returns a function to construct a `VIfc(Ifc)` vtable interface from a
-concrete runtime context and corresponding interface implementation
-with the following signature.
+concrete runtime context and corresponding interface implementation.
+The returned function has the the following signature.
 
 ```Zig
-fn makeFn(
+fn (
     comptime access: CtxAccess,
     ctx: anytype,
     impl: Impl(Ifc, CtxType(@TypeOf(ctx), access)),
@@ -183,11 +183,19 @@ non-pointer contexts.
 
 ```Zig
 pub const CtxAccess = enum { Direct, Indirect };
+
+fn CtxType(comptime Ctx: type, comptime access: CtxAccess) type {
+    return if (access == .Indirect) @typeInfo(Ctx).Pointer.child else Ctx;
+}
 ```
 
-If `access` is `.Indirect`, then the conetxt pointer
-is dereferenced and passed
-by value to member function implementations.
+If `access` is `.Direct`, then the type-erased `ctx` pointer stored
+in `VIfc(Ifc)` is cast as the correct pointer type and passed directly to
+concrete member function implementations.
+
+Otherwise, if `access` is `.Indirect`, `ctx` is a pointer to the actual
+context, and it is dereferenced and passed by value to member
+functions.
 
 ### Example
 
