@@ -94,13 +94,13 @@ test "virtual write and read back" {
 
     var stream_buf: [in_buf.len]u8 = undefined;
     var stream = @This(){ .buffer = &stream_buf, .pos = 0 };
-    const writer = vio.makeWriter(.Direct, &stream, .{});
+    const writer = vio.Writer.init(.direct, &stream, .{});
 
     try vio.writeAll(writer, in_buf);
 
     stream.pos = 0;
 
-    const reader = vio.makeReader(.Direct, &stream, .{});
+    const reader = vio.Reader.init(.direct, &stream, .{});
     var out_buf: [in_buf.len]u8 = undefined;
     const rlen = try vio.readAll(reader, &out_buf);
 

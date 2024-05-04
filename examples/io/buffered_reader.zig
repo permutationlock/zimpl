@@ -84,7 +84,7 @@ test "virtual buffered fixed buffer reader" {
     const buffer = "Hello! Is anybody there?";
     var fb_reader = io.FixedBufferReader{ .buffer = buffer };
     var buff_reader = bufferedReader(8, &fb_reader, .{});
-    const reader = vio.makeReader(.Direct, &buff_reader, .{});
+    const reader = vio.Reader.init(.direct, &buff_reader, .{});
     try std.testing.expect(vio.isBufferedReader(reader));
 
     var out_bytes: [buffer.len]u8 = undefined;

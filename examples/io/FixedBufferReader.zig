@@ -72,7 +72,7 @@ test "read and seek" {
 test "virtual read" {
     const buffer: []const u8 = "I really hope that this works!";
     var stream = @This(){ .buffer = buffer, .pos = 0 };
-    const reader = vio.makeReader(.Direct, &stream, .{});
+    const reader = vio.Reader.init(.direct, &stream, .{});
 
     var out_buf: [buffer.len]u8 = undefined;
     const len1 = try vio.readAll(reader, &out_buf);

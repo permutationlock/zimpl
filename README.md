@@ -8,6 +8,12 @@ Also included is a compatible implementation of [dynamic dispatch][4]
 interfaces via `comptime` generated [vtables][5]. Inspired by
 [`interface.zig`][6].
 
+*Warning: Zimpl is still mostly an exploratory project. Although
+it has some great properties, there are still problems that should be
+addressed, most notably the fact that error messages can be quite bad
+when types don't match interfaces; a huge problem since that is the
+entire point of the library!*
+
 ## Static dispatch
 
 ### `Impl`
@@ -18,8 +24,8 @@ pub fn Impl(comptime Ifc: fn (type) type, comptime T: type) type { ... }
 
 ### Definitions
 
-If `T` is a single-item pointer type, define `U` to be the child type, i.e.
-`T = *U`. Otherwise, define `U` to be `T`.
+If `T` is a single-item pointer type define `U` to be the child type, i.e.
+`T = *U`, otherwise define `U=T`.
 
 ### Arguments
 
@@ -143,6 +149,17 @@ Returns a struct of the following form:
 struct {
     ctx: *anyopaque,
     vtable: VTable(Ifc),
+
+    pub fn init(
+        comptime access: CtxAccess,
+        ctx: anytype,
+        impl: Impl(Ifc, CtxType(@TypeOf(ctx), access)),
+    ) @This() {
+        return .{
+            .ctx = if (access == .indirect) @constCast(ctx) else ctx,
+            .vtable = vtable(Ifc, access, @TypeOf(ctx), impl),
+        };
+    }
 };
 ```
 The struct type `VTable(Ifc)` contains one field for each field of
@@ -150,50 +167,25 @@ The struct type `VTable(Ifc)` contains one field for each field of
 of each vtable field is converted to a (optional) function pointer
 with the same signature.
 
-### `makeVIfc`
-
-```Zig
-pub fn makeVIfc(
-    comptime Ifc: fn (type) type,
-) fn (CtxAccess, anytype, anytype) VIfc(Ifc) { ... }
-```
-
-### Arguments
-
-The `Ifc` function must always return a struct type.
-
-### Return value
-
-Returns a function to construct a `VIfc(Ifc)` vtable interface from a
-concrete runtime context and corresponding interface implementation.
-The returned function has the the following signature.
-
-```Zig
-fn (
-    comptime access: CtxAccess,
-    ctx: anytype,
-    impl: Impl(Ifc, CtxType(@TypeOf(ctx), access)),
-) VIfc(Ifc)
-```
-
-Since vtable interfaces store their
-context as a type-erased pointer, the `access` parameter is provided
+The `init` function constructs a virtual interface from a given
+runtime context and interface implementation. Since the
+context is stored as a type-erased pointer, the `access` parameter is provided
 to allow vtables to be constructed for implementations that rely on
 non-pointer contexts.
 
 ```Zig
-pub const CtxAccess = enum { Direct, Indirect };
+pub const CtxAccess = enum { direct, indirect };
 
 fn CtxType(comptime Ctx: type, comptime access: CtxAccess) type {
-    return if (access == .Indirect) @typeInfo(Ctx).Pointer.child else Ctx;
+    return if (access == .indirect) @typeInfo(Ctx).Pointer.child else Ctx;
 }
 ```
 
-If `access` is `.Direct`, then the type-erased `ctx` pointer stored
+If `access` is `.direct`, then the type-erased `ctx` pointer stored
 in `VIfc(Ifc)` is cast as the correct pointer type and passed directly to
 concrete member function implementations.
 
-Otherwise, if `access` is `.Indirect`, `ctx` is a pointer to the actual
+Otherwise, if `access` is `.indirect`, `ctx` is a pointer to the actual
 context, and it is dereferenced and passed by value to member
 functions.
 
@@ -208,9 +200,6 @@ pub fn Reader(comptime T: type) type {
         read: fn (reader_ctx: T, buffer: []u8) anyerror!usize,
     };
 }
-
-// Function to construct a virtual 'Reader' interface implementation
-const makeReader = makeVIfc(Reader);
 
 // A collection of functions using virtual 'Reader' interfaces
 pub const vio = struct {
@@ -256,7 +245,7 @@ test "define and use a reader" {
     var reader = FixedBufferReader{ .buffer = in_buf };
 
     var out_buf: [16]u8 = undefined;
-    const len = try vio.readAll(makeReader(.Direct, &reader, .{}), &out_buf);
+    const len = try vio.readAll(Reader.init(.direct, &reader, .{}), &out_buf);
 
     try testing.expectEqualStrings(in_buf[0..len], out_buf[0..len]);
 }
@@ -264,7 +253,7 @@ test "define and use a reader" {
 test "use std.fs.File as a reader" {
     var buffer: [19]u8 = undefined;
     var file = try std.fs.cwd().openFile("my_file.txt", .{});
-    try vio.readAll(makeReader(.Indirect, &file, .{}), &buffer);
+    try vio.readAll(Reader.init(.indirect, &file, .{}), &buffer);
 
     try std.testing.expectEqualStrings("Hello, I am a file!", &buffer);
 }
@@ -273,13 +262,10 @@ test "use std.os.fd_t as a reader via an explicitly defined interface" {
     var buffer: [19]u8 = undefined;
     const fd = try std.os.open("my_file.txt", std.os.O.RDONLY, 0);
     try vio.readAll(
-        makeReader(
-            .Indirect,
+        Reader.init(
+            .indirect,
             &fd,
-            .{
-                .read = std.os.read,
-                .ReadError = std.os.ReadError,
-            },
+            .{ .read = std.os.read, .ReadError = std.os.ReadError },
         ),
         &buffer,
     );

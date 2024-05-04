@@ -5,6 +5,8 @@ const assert = std.debug.assert;
 
 const Impl = @import("zimpl").Impl;
 
+pub const vio = @import("vio.zig");
+
 pub const FixedBufferReader = @import("io/FixedBufferReader.zig");
 pub const FixedBufferStream = @import("io/FixedBufferStream.zig");
 pub const CountingWriter = @import("io/counting_writer.zig").CountingWriter;

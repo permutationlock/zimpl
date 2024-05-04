@@ -15,15 +15,11 @@ test "read file with std.fs.File" {
     );
 }
 
-test "read file with std.os.fd_t" {
-    const fd = try std.os.open(
-        "examples/read_file/test.txt",
-        std.os.O.RDONLY,
-        0,
-    );
-    const fd_reader: Impl(io.Reader, std.os.fd_t) = .{
-        .read = std.os.read,
-        .ReadError = std.os.ReadError,
+test "read file with std.posix.fd_t" {
+    const fd = try std.posix.open("examples/read_file/test.txt", .{}, 0);
+    const fd_reader: Impl(io.Reader, std.posix.fd_t) = .{
+        .read = std.posix.read,
+        .ReadError = std.posix.ReadError,
     };
     var buffer: [32]u8 = undefined;
     var fbs: FixedBufferStream = .{ .buffer = &buffer };
@@ -46,15 +42,12 @@ test "read file with buffered std.fs.File" {
     );
 }
 
-test "read file with buffered std.os.fd_t" {
-    const fd = try std.os.open(
-        "examples/read_file/test.txt",
-        std.os.O.RDONLY,
-        0,
-    );
+test "read file with buffered std.posix.fd_t" {
+    const fd = try std.posix.open(
+        "examples/read_file/test.txt", .{}, 0);
     var buffered_fd = io.bufferedReader(256, fd, .{
-        .read = std.os.read,
-        .ReadError = std.os.ReadError,
+        .read = std.posix.read,
+        .ReadError = std.posix.ReadError,
     });
     var buffer: [32]u8 = undefined;
     var fbs: FixedBufferStream = .{ .buffer = &buffer };
@@ -70,8 +63,8 @@ test "virtual read file with std.fs.File" {
     var buffer: [32]u8 = undefined;
     var fbs: FixedBufferStream = .{ .buffer = &buffer };
     try vio.streamUntilDelimiter(
-        vio.makeReader(.Indirect, &file, .{}),
-        vio.makeWriter(.Direct, &fbs, .{}),
+        vio.Reader.init(.indirect, &file, .{}),
+        vio.Writer.init(.direct, &fbs, .{}),
         '\n',
         32,
     );
@@ -81,20 +74,16 @@ test "virtual read file with std.fs.File" {
     );
 }
 
-test "virtual read file with std.os.fd_t" {
-    const fd = try std.os.open(
-        "examples/read_file/test.txt",
-        std.os.O.RDONLY,
-        0,
-    );
+test "virtual read file with std.posix.fd_t" {
+    const fd = try std.posix.open("examples/read_file/test.txt", .{}, 0);
     var buffer: [32]u8 = undefined;
     var fbs: FixedBufferStream = .{ .buffer = &buffer };
     try vio.streamUntilDelimiter(
-        vio.makeReader(.Indirect, &fd, .{
-            .read = std.os.read,
-            .ReadError = std.os.ReadError,
+        vio.Reader.init(.indirect, &fd, .{
+            .read = std.posix.read,
+            .ReadError = std.posix.ReadError,
         }),
-        vio.makeWriter(.Direct, &fbs, .{}),
+        vio.Writer.init(.direct, &fbs, .{}),
         '\n',
         32,
     );

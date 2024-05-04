@@ -16,37 +16,31 @@ pub fn Impl(comptime Ifc: fn (type) type, comptime T: type) type {
         }
     }
     return @Type(@import("std").builtin.Type{ .Struct = .{
-        .layout = .Auto,
+        .layout = .auto,
         .fields = &fields,
         .decls = &.{},
         .is_tuple = false,
     } });
 }
 
+pub const CtxAccess = enum { direct, indirect };
+
 pub fn VIfc(comptime Ifc: fn (type) type) type {
     return struct {
         ctx: *anyopaque,
         vtable: VTable(Ifc),
-    };
-}
 
-pub const CtxAccess = enum { Direct, Indirect };
-
-pub fn makeVIfc(
-    comptime Ifc: fn (type) type,
-) fn (comptime CtxAccess, anytype, anytype) VIfc(Ifc) {
-    return struct {
-        fn makeFn(
+        pub fn init(
             comptime access: CtxAccess,
             ctx: anytype,
             impl: Impl(Ifc, CtxType(@TypeOf(ctx), access)),
-        ) VIfc(Ifc) {
+        ) @This() {
             return .{
-                .ctx = if (access == .Indirect) @constCast(ctx) else ctx,
+                .ctx = if (access == .indirect) @constCast(ctx) else ctx,
                 .vtable = vtable(Ifc, access, @TypeOf(ctx), impl),
             };
         }
-    }.makeFn;
+    };
 }
 
 pub fn VTable(comptime Ifc: fn (type) type) type {
@@ -55,7 +49,7 @@ pub fn VTable(comptime Ifc: fn (type) type) type {
     var i: usize = 0;
     for (ifc_fields) |*field| {
         switch (@typeInfo(field.type)) {
-            .Optional => |info| {
+            .Optional => |info| if (@typeInfo(info.child) == .Fn) {
                 fields[i] = .{
                     .name = field.name,
                     .type = ?*const info.child,
@@ -79,7 +73,7 @@ pub fn VTable(comptime Ifc: fn (type) type) type {
         }
     }
     return @Type(Type{ .Struct = .{
-        .layout = .Auto,
+        .layout = .auto,
         .fields = fields[0..i],
         .decls = &.{},
         .is_tuple = false,
@@ -114,7 +108,7 @@ pub fn vtable(
 }
 
 fn CtxType(comptime Ctx: type, comptime access: CtxAccess) type {
-    return if (access == .Indirect) @typeInfo(Ctx).Pointer.child else Ctx;
+    return if (access == .indirect) @typeInfo(Ctx).Pointer.child else Ctx;
 }
 
 fn virtualize(
@@ -126,10 +120,8 @@ fn virtualize(
     const params = @typeInfo(@TypeOf(func)).Fn.params;
     const return_type = @typeInfo(VFn).Fn.return_type.?;
 
-    if (params.len == 0 or params[0].type.? != CtxType(Ctx, access)) {
-        return func;
-    }
     return switch (params.len) {
+        0 => func,
         1 => struct {
             fn impl(ctx: *anyopaque) return_type {
                 return func(castCtx(access, Ctx, ctx));
@@ -206,8 +198,8 @@ inline fn castCtx(
     comptime Ctx: type,
     ptr: *anyopaque,
 ) CtxType(Ctx, access) {
-    return if (access == .Indirect)
-        @as(*CtxType(Ctx, access), @alignCast(@ptrCast(ptr))).*
+    return if (access == .indirect)
+        @as(*const CtxType(Ctx, access), @alignCast(@ptrCast(ptr))).*
     else
         @alignCast(@ptrCast(ptr));
 }

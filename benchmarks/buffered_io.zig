@@ -1,11 +1,12 @@
 const std = @import("std");
 const io = @import("io");
+const vio = io.vio;
 
 const LOOPS = 1000;
 
 pub fn main() !void {
     var in: [10000]u8 = undefined;
-    try std.os.getrandom(&in);
+    try std.posix.getrandom(&in);
 
     {
         // time buffered generic stream
@@ -40,6 +41,7 @@ pub fn main() !void {
             }
         }
         const elapsed = timer.lap();
+        std.debug.print("buffered zimpl io\n", .{});
         std.debug.print(
             "Took: {d}us ({d}ns / iteration) {d} entries, {d} bytes\n",
             .{ elapsed / 1000, elapsed / LOOPS, found, bytes },
@@ -79,6 +81,89 @@ pub fn main() !void {
             }
         }
         const elapsed = timer.lap();
+        std.debug.print("unbuffered zimpl io\n", .{});
+        std.debug.print(
+            "Took: {d}us ({d}ns / iteration) {d} entries, {d} bytes\n",
+            .{ elapsed / 1000, elapsed / LOOPS, found, bytes },
+        );
+    }
+
+    {
+        // time virtual buffered generic stream
+        var fbr = io.FixedBufferReader{ .buffer = &in };
+        var out: [10000]u8 = undefined;
+        var out_stream = io.FixedBufferStream{ .buffer = &out };
+
+        const reader = vio.Reader.init(.direct, &fbr, .{});
+        const writer = vio.Writer.init(.direct, &out_stream, .{});
+
+        var found: usize = 0;
+        var bytes: usize = 0;
+
+        var timer = try std.time.Timer.start();
+
+        for (0..LOOPS) |_| {
+            fbr.pos = 0;
+
+            while (true) {
+                vio.streamUntilDelimiter(
+                    reader,
+                    writer,
+                    '\n',
+                    out.len,
+                ) catch |err| switch (err) {
+                    error.EndOfStream => break,
+                    else => return err,
+                };
+
+                found += 1;
+                bytes += out_stream.getWritten().len;
+                out_stream.pos = 0;
+            }
+        }
+        const elapsed = timer.lap();
+        std.debug.print("buffered zimpl vio\n", .{});
+        std.debug.print(
+            "Took: {d}us ({d}ns / iteration) {d} entries, {d} bytes\n",
+            .{ elapsed / 1000, elapsed / LOOPS, found, bytes },
+        );
+    }
+
+    {
+        // time virtual unbuffered generic stream
+        var fbr = io.FixedBufferReader{ .buffer = &in };
+        var out: [10000]u8 = undefined;
+        var out_stream = io.FixedBufferStream{ .buffer = &out };
+
+        const reader = vio.Reader.init(.direct, &fbr, .{ .readBuffer = null });
+        const writer = vio.Writer.init(.direct, &out_stream, .{});
+
+        var found: usize = 0;
+        var bytes: usize = 0;
+
+        var timer = try std.time.Timer.start();
+
+        for (0..LOOPS) |_| {
+            fbr.pos = 0;
+
+            while (true) {
+                vio.streamUntilDelimiter(
+                    reader,
+                    writer,
+                    '\n',
+                    out.len,
+                ) catch |err| switch (err) {
+                    error.EndOfStream => break,
+                    else => return err,
+                };
+
+                found += 1;
+                bytes += out_stream.getWritten().len;
+                out_stream.pos = 0;
+            }
+        }
+        const elapsed = timer.lap();
+        std.debug.print("unbuffered zimpl vio\n", .{});
         std.debug.print(
             "Took: {d}us ({d}ns / iteration) {d} entries, {d} bytes\n",
             .{ elapsed / 1000, elapsed / LOOPS, found, bytes },
@@ -93,14 +178,18 @@ pub fn main() !void {
         var out: [10000]u8 = undefined;
         var out_stream = std.io.fixedBufferStream(&out);
 
+        const reader = fbr.reader();
+        const anyreader = reader.any();
+        const writer = out_stream.writer();
+
         var timer = try std.time.Timer.start();
 
         for (0..LOOPS) |_| {
             fbr.pos = 0;
 
             while (true) {
-                fbr.reader().streamUntilDelimiter(
-                    out_stream.writer(),
+                anyreader.streamUntilDelimiter(
+                    writer,
                     '\n',
                     out.len,
                 ) catch |err| switch (err) {
@@ -114,6 +203,51 @@ pub fn main() !void {
             }
         }
         const elapsed = timer.lap();
+        std.debug.print("std.io fixedBufferStream\n", .{});
+        std.debug.print(
+            "Took: {d}us ({d}ns / iteration) {d} entries, {d} bytes\n",
+            .{ elapsed / 1000, elapsed / LOOPS, found, bytes },
+        );
+    }
+
+    {
+        // time std.io stream
+        var found: usize = 0;
+        var bytes: usize = 0;
+        var fbr = std.io.fixedBufferStream(&in);
+        var out: [10000]u8 = undefined;
+        var out_stream = std.io.fixedBufferStream(&out);
+
+        var bfbr = std.io.bufferedReader(fbr.reader());
+        var boutstream = std.io.bufferedWriter(out_stream.writer());
+
+        const reader = bfbr.reader();
+        const anyreader = reader.any();
+        const writer = boutstream.writer();
+
+        var timer = try std.time.Timer.start();
+
+        for (0..LOOPS) |_| {
+            fbr.pos = 0;
+
+            while (true) {
+                anyreader.streamUntilDelimiter(
+                    writer,
+                    '\n',
+                    out.len,
+                ) catch |err| switch (err) {
+                    error.EndOfStream => break,
+                    else => return err,
+                };
+
+                try boutstream.flush();
+                found += 1;
+                bytes += out_stream.getWritten().len;
+                out_stream.pos = 0;
+            }
+        }
+        const elapsed = timer.lap();
+        std.debug.print("std.io fixedBufferStream\n", .{});
         std.debug.print(
             "Took: {d}us ({d}ns / iteration) {d} entries, {d} bytes\n",
             .{ elapsed / 1000, elapsed / LOOPS, found, bytes },

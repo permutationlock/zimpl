@@ -1,18 +1,19 @@
 const std = @import("std");
-const Builder = std.build.Builder;
+const Build = std.Build;
+const Import = Build.Module.Import;
 
 const BuildFile = struct {
     name: []const u8,
     path: []const u8,
-    deps: []const Builder.ModuleDependency = &.{},
+    imports: []const Import = &.{},
 };
 
-pub fn build(b: *Builder) !void {
+pub fn build(b: *Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
     const zimpl = b.addModule("zimpl", .{
-        .source_file = .{ .path = "src/zimpl.zig" },
+        .root_source_file = .{ .path = "src/zimpl.zig" },
     });
 
     const examples = [_]BuildFile{
@@ -33,25 +34,25 @@ pub fn build(b: *Builder) !void {
             .target = target,
             .optimize = optimize,
         });
-        ex_test.addModule("zimpl", zimpl);
-        for (example.deps) |dep| {
-            ex_test.addModule(dep.name, dep.module);
+        ex_test.root_module.addImport("zimpl", zimpl);
+        for (example.imports) |dep| {
+            ex_test.root_moduel.addImport(dep.name, dep.module);
         }
         const run = b.addRunArtifact(ex_test);
         test_step.dependOn(&run.step);
     }
 
     const io = b.addModule("io", .{
-        .source_file = .{
+        .root_source_file = .{
             .path = "examples/io.zig",
         },
-        .dependencies = &.{.{ .name = "zimpl", .module = zimpl }},
+        .imports = &.{.{ .name = "zimpl", .module = zimpl }},
     });
 
     const benchmarks = [_]BuildFile{.{
         .name = "buffered_io",
         .path = "benchmarks/buffered_io.zig",
-        .deps = &.{.{ .name = "io", .module = io }},
+        .imports = &.{.{ .name = "io", .module = io }},
     }};
 
     const benchmark_step = b.step("benchmark", &.{});
@@ -63,10 +64,10 @@ pub fn build(b: *Builder) !void {
             .target = target,
             .optimize = .ReleaseFast,
         });
-        for (benchmark.deps) |dep| {
-            bench.addModule(dep.name, dep.module);
+        for (benchmark.imports) |dep| {
+            bench.root_module.addImport(dep.name, dep.module);
         }
-        const run = b.addRunArtifact(bench);
-        benchmark_step.dependOn(&run.step);
+        const install = b.addInstallArtifact(bench, .{});
+        benchmark_step.dependOn(&install.step);
     }
 }
