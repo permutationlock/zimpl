@@ -1,9 +1,9 @@
 const std = @import("std");
 const testing = std.testing;
 
-const zimpl = @import("zimpl");
-const VTable = zimpl.VTable;
-const vtable = zimpl.vtable;
+const ztable = @import("zimpl").ztable;
+const VTable = ztable.VTable;
+const vtable = ztable.vtable;
 
 const Counter = @import("count.zig").Counter;
 

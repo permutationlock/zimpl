@@ -2,7 +2,6 @@ const std = @import("std");
 const io = @import("io.zig");
 const vio = @import("vio.zig");
 const FixedBufferStream = io.FixedBufferStream;
-const Impl = @import("zimpl").Impl;
 
 test "read file with std.fs.File" {
     const file = try std.fs.cwd().openFile("examples/read_file/test.txt", .{});
@@ -17,13 +16,19 @@ test "read file with std.fs.File" {
 
 test "read file with std.posix.fd_t" {
     const fd = try std.posix.open("examples/read_file/test.txt", .{}, 0);
-    const fd_reader: Impl(io.Reader, std.posix.fd_t) = .{
-        .read = std.posix.read,
-        .ReadError = std.posix.ReadError,
-    };
     var buffer: [32]u8 = undefined;
     var fbs: FixedBufferStream = .{ .buffer = &buffer };
-    try io.streamUntilDelimiter(fd, fd_reader, &fbs, .{}, '\n', 32);
+    try io.streamUntilDelimiter(
+        fd,
+        .{
+            .read = std.posix.read,
+            .ReadError = std.posix.ReadError,
+        },
+        &fbs,
+        .{},
+        '\n',
+        32,
+    );
     try std.testing.expectEqualStrings(
         "Hello, I am a file!",
         fbs.getWritten(),

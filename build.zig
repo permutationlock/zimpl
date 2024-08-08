@@ -13,7 +13,9 @@ pub fn build(b: *Build) !void {
     const optimize = b.standardOptimizeOption(.{});
 
     const zimpl = b.addModule("zimpl", .{
-        .root_source_file = .{ .path = "src/zimpl.zig" },
+        .root_source_file = .{
+            .src_path = .{ .owner = b, .sub_path = "src/zimpl.zig" },
+        },
     });
 
     const examples = [_]BuildFile{
@@ -30,7 +32,9 @@ pub fn build(b: *Build) !void {
     inline for (examples) |example| {
         const ex_test = b.addTest(.{
             .name = example.name,
-            .root_source_file = .{ .path = example.path },
+            .root_source_file = .{
+                .src_path = .{ .owner = b, .sub_path = example.path },
+            },
             .target = target,
             .optimize = optimize,
         });
@@ -42,9 +46,25 @@ pub fn build(b: *Build) !void {
         test_step.dependOn(&run.step);
     }
 
+    const tlib = b.addStaticLibrary(.{
+        .name = "zimpl",
+        .root_source_file = .{
+            .src_path = .{ .owner = b, .sub_path = "src/zimpl.zig" },
+        },
+        .target = target,
+        .optimize = optimize,
+    });
+    const docs_step = b.step("docs", "Emit docs");
+    const docs_install = b.addInstallDirectory(.{
+        .install_dir = .prefix,
+        .install_subdir = "docs",
+        .source_dir = tlib.getEmittedDocs(),
+    });
+    docs_step.dependOn(&docs_install.step);
+
     const io = b.addModule("io", .{
         .root_source_file = .{
-            .path = "examples/io.zig",
+            .src_path = .{ .owner = b, .sub_path = "examples/io.zig"  },
         },
         .imports = &.{.{ .name = "zimpl", .module = zimpl }},
     });
@@ -60,7 +80,9 @@ pub fn build(b: *Build) !void {
     inline for (benchmarks) |benchmark| {
         const bench = b.addExecutable(.{
             .name = benchmark.name,
-            .root_source_file = .{ .path = benchmark.path },
+            .root_source_file = .{
+                .src_path = .{ .owner = b, .sub_path = benchmark.path },
+            },
             .target = target,
             .optimize = .ReleaseFast,
         });

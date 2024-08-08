@@ -1,8 +1,8 @@
 const std = @import("std");
 const testing = std.testing;
 
-const zimpl = @import("zimpl");
-const VIfc = zimpl.VIfc;
+const ztable = @import("zimpl").ztable;
+const VIfc = ztable.VIfc;
 
 const Counter = VIfc(@import("count.zig").Counter);
 

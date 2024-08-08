@@ -3,8 +3,8 @@ const native_endian = @import("builtin").target.cpu.arch.endian();
 const mem = std.mem;
 const assert = std.debug.assert;
 
-const zimpl = @import("zimpl");
-const VIfc = zimpl.VIfc;
+const ztable = @import("zimpl").ztable;
+const VIfc = ztable.VIfc;
 
 const io = @import("io.zig");
 
@@ -22,10 +22,7 @@ pub inline fn readBuffer(reader: Reader) anyerror![]const u8 {
     return reader.vtable.readBuffer.?(reader.ctx);
 }
 
-pub inline fn readAll(
-    reader: Reader,
-    buffer: []u8,
-) anyerror!usize {
+pub inline fn readAll(reader: Reader, buffer: []u8) anyerror!usize {
     return readAtLeast(reader, buffer, buffer.len);
 }
 

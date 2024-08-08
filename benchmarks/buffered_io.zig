@@ -5,7 +5,7 @@ const vio = io.vio;
 const LOOPS = 1000;
 
 pub fn main() !void {
-    var in: [10000]u8 = undefined;
+    var in: [100000]u8 = undefined;
     try std.posix.getrandom(&in);
 
     {
@@ -210,47 +210,47 @@ pub fn main() !void {
         );
     }
 
-    {
-        // time std.io stream
-        var found: usize = 0;
-        var bytes: usize = 0;
-        var fbr = std.io.fixedBufferStream(&in);
-        var out: [10000]u8 = undefined;
-        var out_stream = std.io.fixedBufferStream(&out);
+    //{
+    //    // time std.io stream
+    //    var found: usize = 0;
+    //    var bytes: usize = 0;
+    //    var fbr = std.io.fixedBufferStream(&in);
+    //    var out: [10000]u8 = undefined;
+    //    var out_stream = std.io.fixedBufferStream(&out);
 
-        var bfbr = std.io.bufferedReader(fbr.reader());
-        var boutstream = std.io.bufferedWriter(out_stream.writer());
+    //    var bfbr = std.io.bufferedReader(fbr.reader());
+    //    var boutstream = std.io.bufferedWriter(out_stream.writer());
 
-        const reader = bfbr.reader();
-        const anyreader = reader.any();
-        const writer = boutstream.writer();
+    //    const reader = bfbr.reader();
+    //    const anyreader = reader.any();
+    //    const writer = boutstream.writer();
 
-        var timer = try std.time.Timer.start();
+    //    var timer = try std.time.Timer.start();
 
-        for (0..LOOPS) |_| {
-            fbr.pos = 0;
+    //    for (0..LOOPS) |_| {
+    //        fbr.pos = 0;
 
-            while (true) {
-                anyreader.streamUntilDelimiter(
-                    writer,
-                    '\n',
-                    out.len,
-                ) catch |err| switch (err) {
-                    error.EndOfStream => break,
-                    else => return err,
-                };
+    //        while (true) {
+    //            anyreader.streamUntilDelimiter(
+    //                writer,
+    //                '\n',
+    //                out.len,
+    //            ) catch |err| switch (err) {
+    //                error.EndOfStream => break,
+    //                else => return err,
+    //            };
 
-                try boutstream.flush();
-                found += 1;
-                bytes += out_stream.getWritten().len;
-                out_stream.pos = 0;
-            }
-        }
-        const elapsed = timer.lap();
-        std.debug.print("std.io fixedBufferStream\n", .{});
-        std.debug.print(
-            "Took: {d}us ({d}ns / iteration) {d} entries, {d} bytes\n",
-            .{ elapsed / 1000, elapsed / LOOPS, found, bytes },
-        );
-    }
+    //            try boutstream.flush();
+    //            found += 1;
+    //            bytes += out_stream.getWritten().len;
+    //            out_stream.pos = 0;
+    //        }
+    //    }
+    //    const elapsed = timer.lap();
+    //    std.debug.print("buffered std.io fixedBufferStream\n", .{});
+    //    std.debug.print(
+    //        "Took: {d}us ({d}ns / iteration) {d} entries, {d} bytes\n",
+    //        .{ elapsed / 1000, elapsed / LOOPS, found, bytes },
+    //    );
+    //}
 }
