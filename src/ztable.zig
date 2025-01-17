@@ -24,26 +24,26 @@ pub fn VIfc(comptime Ifc: fn (type) type) type {
 }
 
 pub fn VTable(comptime Ifc: fn (type) type) type {
-    const ifc_fields = @typeInfo(Ifc(*anyopaque)).Struct.fields;
+    const ifc_fields = @typeInfo(Ifc(*anyopaque)).@"struct".fields;
     var fields: [ifc_fields.len]Type.StructField = undefined;
     var i: usize = 0;
     for (ifc_fields) |*field| {
         switch (@typeInfo(field.type)) {
-            .Optional => |info| if (@typeInfo(info.child) == .Fn) {
+            .optional => |info| if (@typeInfo(info.child) == .@"fn") {
                 fields[i] = .{
                     .name = field.name,
                     .type = ?*const info.child,
-                    .default_value = null,
+                    .default_value_ptr = null,
                     .is_comptime = false,
                     .alignment = 0,
                 };
                 i += 1;
             },
-            .Fn => {
+            .@"fn" => {
                 fields[i] = .{
                     .name = field.name,
                     .type = *const field.type,
-                    .default_value = null,
+                    .default_value_ptr = null,
                     .is_comptime = false,
                     .alignment = 0,
                 };
@@ -52,7 +52,7 @@ pub fn VTable(comptime Ifc: fn (type) type) type {
             else => {},
         }
     }
-    return @Type(Type{ .Struct = .{
+    return @Type(Type{ .@"struct" = .{
         .layout = .auto,
         .fields = fields[0..i],
         .decls = &.{},
@@ -67,17 +67,17 @@ pub fn vtable(
     comptime impl: Impl(Ifc, CtxType(Ctx, access)),
 ) VTable(Ifc) {
     var vt: VTable(Ifc) = undefined;
-    inline for (@typeInfo(VTable(Ifc)).Struct.fields) |fld_info| {
+    inline for (@typeInfo(VTable(Ifc)).@"struct".fields) |fld_info| {
         const impl_func = @field(impl, fld_info.name);
         @field(vt, fld_info.name) = switch (@typeInfo(fld_info.type)) {
-            .Optional => |opt| if (impl_func) |func| &virtualize(
-                @typeInfo(opt.child).Pointer.child,
+            .optional => |opt| if (impl_func) |func| &virtualize(
+                @typeInfo(opt.child).pointer.child,
                 access,
                 Ctx,
                 func,
             ) else null,
             else => &virtualize(
-                @typeInfo(fld_info.type).Pointer.child,
+                @typeInfo(fld_info.type).pointer.child,
                 access,
                 Ctx,
                 impl_func,
@@ -88,7 +88,7 @@ pub fn vtable(
 }
 
 fn CtxType(comptime Ctx: type, comptime access: CtxAccess) type {
-    return if (access == .indirect) @typeInfo(Ctx).Pointer.child else Ctx;
+    return if (access == .indirect) @typeInfo(Ctx).pointer.child else Ctx;
 }
 
 fn virtualize(
@@ -97,8 +97,8 @@ fn virtualize(
     comptime Ctx: type,
     comptime func: anytype,
 ) VFn {
-    const params = @typeInfo(@TypeOf(func)).Fn.params;
-    const return_type = @typeInfo(VFn).Fn.return_type.?;
+    const params = @typeInfo(@TypeOf(func)).@"fn".params;
+    const return_type = @typeInfo(VFn).@"fn".return_type.?;
 
     return switch (params.len) {
         0 => func,

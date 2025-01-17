@@ -1,3 +1,6 @@
+// Wrote this with inspiration from a Karl Seguin article,
+// it's just playing around, not to be taken too seriously.
+
 const std = @import("std");
 const io = @import("io");
 const vio = io.vio;
@@ -17,7 +20,9 @@ pub fn main() !void {
         var found: usize = 0;
         var bytes: usize = 0;
 
+        asm volatile ("" ::: "memory");
         var timer = try std.time.Timer.start();
+        asm volatile ("" ::: "memory");
 
         for (0..LOOPS) |_| {
             fbr.pos = 0;
@@ -40,7 +45,11 @@ pub fn main() !void {
                 out_stream.pos = 0;
             }
         }
+
+        asm volatile ("" ::: "memory");
         const elapsed = timer.lap();
+        asm volatile ("" ::: "memory");
+
         std.debug.print("buffered zimpl io\n", .{});
         std.debug.print(
             "Took: {d}us ({d}ns / iteration) {d} entries, {d} bytes\n",
@@ -56,7 +65,9 @@ pub fn main() !void {
         var found: usize = 0;
         var bytes: usize = 0;
 
+        asm volatile ("" ::: "memory");
         var timer = try std.time.Timer.start();
+        asm volatile ("" ::: "memory");
 
         for (0..LOOPS) |_| {
             fbr.pos = 0;
@@ -80,7 +91,11 @@ pub fn main() !void {
                 out_stream.pos = 0;
             }
         }
+
+        asm volatile ("" ::: "memory");
         const elapsed = timer.lap();
+        asm volatile ("" ::: "memory");
+
         std.debug.print("unbuffered zimpl io\n", .{});
         std.debug.print(
             "Took: {d}us ({d}ns / iteration) {d} entries, {d} bytes\n",
@@ -100,7 +115,9 @@ pub fn main() !void {
         var found: usize = 0;
         var bytes: usize = 0;
 
+        asm volatile ("" ::: "memory");
         var timer = try std.time.Timer.start();
+        asm volatile ("" ::: "memory");
 
         for (0..LOOPS) |_| {
             fbr.pos = 0;
@@ -121,7 +138,11 @@ pub fn main() !void {
                 out_stream.pos = 0;
             }
         }
+
+        asm volatile ("" ::: "memory");
         const elapsed = timer.lap();
+        asm volatile ("" ::: "memory");
+
         std.debug.print("buffered zimpl vio\n", .{});
         std.debug.print(
             "Took: {d}us ({d}ns / iteration) {d} entries, {d} bytes\n",
@@ -141,7 +162,9 @@ pub fn main() !void {
         var found: usize = 0;
         var bytes: usize = 0;
 
+        asm volatile ("" ::: "memory");
         var timer = try std.time.Timer.start();
+        asm volatile ("" ::: "memory");
 
         for (0..LOOPS) |_| {
             fbr.pos = 0;
@@ -162,7 +185,11 @@ pub fn main() !void {
                 out_stream.pos = 0;
             }
         }
+
+        asm volatile ("" ::: "memory");
         const elapsed = timer.lap();
+        asm volatile ("" ::: "memory");
+
         std.debug.print("unbuffered zimpl vio\n", .{});
         std.debug.print(
             "Took: {d}us ({d}ns / iteration) {d} entries, {d} bytes\n",
@@ -182,7 +209,9 @@ pub fn main() !void {
         const anyreader = reader.any();
         const writer = out_stream.writer();
 
+        asm volatile ("" ::: "memory");
         var timer = try std.time.Timer.start();
+        asm volatile ("" ::: "memory");
 
         for (0..LOOPS) |_| {
             fbr.pos = 0;
@@ -202,7 +231,11 @@ pub fn main() !void {
                 out_stream.pos = 0;
             }
         }
+
+        asm volatile ("" ::: "memory");
         const elapsed = timer.lap();
+        asm volatile ("" ::: "memory");
+
         std.debug.print("std.io fixedBufferStream\n", .{});
         std.debug.print(
             "Took: {d}us ({d}ns / iteration) {d} entries, {d} bytes\n",
