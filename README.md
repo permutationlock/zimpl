@@ -8,11 +8,7 @@ Also included is a compatible implementation of [dynamic dispatch][4]
 interfaces via `comptime` generated [vtables][5]. Inspired by
 [`interface.zig`][6].
 
-*Warning: Zimpl is still mostly an exploratory project. Although
-it has some great properties, there are still problems that should be
-addressed, most notably the fact that error messages can be quite bad
-when types don't match interfaces; a huge problem since that is the
-entire point of the library!*
+*Warning: Zimpl is still mostly an exploratory project.*
 
 ## Static dispatch
 
@@ -24,21 +20,22 @@ pub fn Impl(comptime Ifc: fn (type) type, comptime T: type) type { ... }
 
 ### Definitions
 
-If `T` is a single-item pointer type define `U` to be the child type, i.e.
-`T = *U`, otherwise define `U=T`.
+If `T` is a single-item pointer type, then define `U(T)` to be the child type,
+i.e. `T = *U(T)`, otherwise define `U(T)=T`.
 
 ### Arguments
 
 The function `Ifc` must always return a struct type.
-If `U` has a declaration matching the name of a field from
+If `U(T)` has a declaration matching the name of a field from
 `Ifc(T)` that cannot coerce to the type of that field, then a
-compile error will occur.
+compile error will occur (and a pretty good one now, thank you Zig
+Core Team).
 
 ### Return value
 
 The type `Impl(Ifc, T)` is a struct type with the same fields
 as `Ifc(T)`, but with the default value of each field set equal to
-the declaration of `U` of the same name, if such a declaration
+the declaration of `U(T)` of the same name, if such a declaration
 exists.
 
 ### Example
