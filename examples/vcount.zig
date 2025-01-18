@@ -37,7 +37,7 @@ const MyCounter = struct {
         self.count += 1;
     }
 
-    pub fn read(self: *const @This()) u32 {
+    pub fn read(self: *const @This()) usize {
         return self.count;
     }
 };
