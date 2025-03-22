@@ -54,10 +54,6 @@ fn otherInc(self: *MyCounter) void {
 
 test "override implementation" {
     var my_counter: MyCounter = .{ .count = 0 };
-    countToTen(Counter.init(
-        .direct,
-        &my_counter,
-        .{ .increment = otherInc },
-    ));
+    countToTen(Counter.init(.direct, &my_counter, .{ .increment = otherInc }));
     try testing.expectEqual(@as(usize, 15), my_counter.count);
 }
