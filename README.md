@@ -8,7 +8,8 @@ Also included is a compatible implementation of [dynamic dispatch][4]
 interfaces via `comptime` generated [vtables][5]. Inspired by
 [`interface.zig`][6].
 
-*Warning: Zimpl is still mostly an exploratory project.*
+**Warning**: *Zimpl was an experiment that I made for fun while learning Zig,
+I have never found a reason to use it for anything productive.*
 
 ## Static dispatch
 
